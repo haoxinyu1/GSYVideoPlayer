@@ -31,6 +31,13 @@ import java.util.List;
 
 public class SmartPickVideo extends StandardGSYVideoPlayer {
 
+    private static final int CHANGE_TIMEOUT_MS = 10 * 1000;
+    private static final int CHANGE_SEEK_RESYNC_THRESHOLD_MS = 800;
+    private static final int MAX_CHANGE_SEEK_SYNC_COUNT = 1;
+    private static final int CHANGE_COMMIT_POSITION_TOLERANCE_MS = 1200;
+    private static final int CHANGE_SEEK_RETRY_DELAY_MS = 300;
+    private static final int MAX_CHANGE_SEEK_RETRY_COUNT = 2;
+    private static final int INVALID_SOURCE_POSITION = -1;
 
     private TextView mSwitchSize;
 
@@ -44,12 +51,31 @@ public class SmartPickVideo extends StandardGSYVideoPlayer {
 
     private String mTypeText = "标准";
 
+    private GSYVideoBaseManager mOriginManager;
     private GSYVideoManager mTmpManager;
 
     //切换过程中最好弹出loading，不给其他任何操作
     private LoadingDialog mLoadingDialog;
 
     private boolean isChanging;
+    private int mPendingSourcePosition = INVALID_SOURCE_POSITION;
+    private int mChangeSessionId;
+    private long mChangeSeekPosition;
+    private long mLastKnownChangePosition;
+    private int mChangeSeekSyncCount;
+    private int mChangeSeekRetryCount;
+    private boolean mWasPlayingBeforeChange;
+    private boolean mNeedMuteBeforeChange;
+    private boolean mPausedOriginForResync;
+
+    private final Runnable mChangeTimeoutRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isChanging) {
+                cancelChange("切换超时");
+            }
+        }
+    };
 
     /**
      * 1.5.0开始加入，如果需要不同布局区分功能，需要重载
@@ -135,6 +161,7 @@ public class SmartPickVideo extends StandardGSYVideoPlayer {
         sampleVideo.mType = mType;
         sampleVideo.mUrlList = mUrlList;
         sampleVideo.mTypeText = mTypeText;
+        sampleVideo.mLastKnownChangePosition = mLastKnownChangePosition;
         sampleVideo.mSwitchSize.setText(mTypeText);
         return sampleVideo;
     }
@@ -154,6 +181,7 @@ public class SmartPickVideo extends StandardGSYVideoPlayer {
             mSourcePosition = sampleVideo.mSourcePosition;
             mType = sampleVideo.mType;
             mTypeText = sampleVideo.mTypeText;
+            mLastKnownChangePosition = sampleVideo.mLastKnownChangePosition;
             mSwitchSize.setText(mTypeText);
             setUp(mUrlList, mCache, mCachePath, mTitle);
         }
@@ -189,149 +217,405 @@ public class SmartPickVideo extends StandardGSYVideoPlayer {
     }
 
 
-    private void resolveChangeUrl(boolean cacheWithPlay, File cachePath, String url) {
-        if (mTmpManager != null) {
-            mCache = cacheWithPlay;
-            mCachePath = cachePath;
-            mOriginUrl = url;
-            this.mUrl = url;
+    private void applySourcePosition(int position) {
+        if (!isValidSourcePosition(position)) {
+            return;
         }
+        SwitchVideoModel switchVideoModel = mUrlList.get(position);
+        mSourcePosition = position;
+        mTypeText = switchVideoModel.getName();
+        mOriginUrl = switchVideoModel.getUrl();
+        mUrl = switchVideoModel.getUrl();
+        mSwitchSize.setText(mTypeText);
     }
 
 
-    private GSYMediaPlayerListener gsyMediaPlayerListener = new GSYMediaPlayerListener() {
-        @Override
-        public void onPrepared() {
-            if (mTmpManager != null) {
-                mTmpManager.start();
-                mTmpManager.seekTo(getCurrentPositionWhenPlaying());
+    private GSYMediaPlayerListener createChangeMediaPlayerListener(final int sessionId) {
+        return new GSYMediaPlayerListener() {
+            @Override
+            public void onPrepared() {
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!isCurrentChangeSession(sessionId)) {
+                            return;
+                        }
+                        long targetPosition = getLatestOriginChangePosition();
+                        if (!isChangeTargetPositionReliable(targetPosition)) {
+                            cancelChange("当前位置无法切换");
+                            return;
+                        }
+                        mChangeSeekPosition = targetPosition;
+                        mTmpManager.start();
+                        mTmpManager.seekTo(mChangeSeekPosition);
+                    }
+                });
             }
-        }
 
-        @Override
-        public void onAutoCompletion() {
+            @Override
+            public void onAutoCompletion() {
 
-        }
-
-        @Override
-        public void onCompletion() {
-
-        }
-
-        @Override
-        public void onBufferingUpdate(int percent) {
-
-        }
-
-        @Override
-        public void onSeekComplete() {
-            if (mTmpManager != null) {
-                GSYVideoBaseManager manager = GSYVideoManager.instance();
-                GSYVideoManager.changeManager(mTmpManager);
-                mTmpManager.setLastListener(manager.lastListener());
-                mTmpManager.setListener(manager.listener());
-
-                manager.setDisplay(null);
-
-                Debuger.printfError("**** showDisplay onSeekComplete ***** " + mSurface);
-                Debuger.printfError("**** showDisplay onSeekComplete isValid***** " + mSurface.isValid());
-                mTmpManager.setDisplay(mSurface);
-                changeUiToPlayingClear();
-                resolveChangedResult();
-                manager.releaseMediaPlayer();
             }
-        }
 
-        @Override
-        public void onError(int what, int extra) {
-            mSourcePosition = mPreSourcePosition;
-            if (mTmpManager != null) {
-                mTmpManager.releaseMediaPlayer();
+            @Override
+            public void onCompletion() {
+
             }
-            post(new Runnable() {
-                @Override
-                public void run() {
-                    resolveChangedResult();
-                    Toast.makeText(mContext, "change Fail", Toast.LENGTH_LONG).show();
-                }
-            });
-        }
 
-        @Override
-        public void onInfo(int what, int extra) {
+            @Override
+            public void onBufferingUpdate(int percent) {
 
-        }
+            }
 
-        @Override
-        public void onVideoSizeChanged() {
+            @Override
+            public void onSeekComplete() {
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isCurrentChangeSession(sessionId)) {
+                            handleChangeSeekComplete(sessionId);
+                        }
+                    }
+                });
+            }
 
-        }
+            @Override
+            public void onError(int what, int extra) {
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isCurrentChangeSession(sessionId)) {
+                            cancelChange("切换失败");
+                        }
+                    }
+                });
+            }
 
-        @Override
-        public void onBackFullscreen() {
+            @Override
+            public void onInfo(int what, int extra) {
 
-        }
+            }
 
-        @Override
-        public void onVideoPause() {
+            @Override
+            public void onVideoSizeChanged() {
 
-        }
+            }
 
-        @Override
-        public void onVideoResume() {
+            @Override
+            public void onBackFullscreen() {
 
-        }
+            }
 
-        @Override
-        public void onVideoResume(boolean seek) {
+            @Override
+            public void onVideoPause() {
 
-        }
-    };
+            }
+
+            @Override
+            public void onVideoResume() {
+
+            }
+
+            @Override
+            public void onVideoResume(boolean seek) {
+
+            }
+        };
+    }
 
     private void resolveStartChange(int position) {
+        if (!isValidSourcePosition(position)) {
+            return;
+        }
         final String name = mUrlList.get(position).getName();
         if (mSourcePosition != position) {
             if ((mCurrentState == GSYVideoPlayer.CURRENT_STATE_PLAYING
                     || mCurrentState == GSYVideoPlayer.CURRENT_STATE_PAUSE)) {
-                showLoading();
+                if (!isSurfaceAvailableForChange()) {
+                    Toast.makeText(getContext(), "当前画面不可切换", Toast.LENGTH_LONG).show();
+                    return;
+                }
                 final String url = mUrlList.get(position).getUrl();
+                mPreSourcePosition = mSourcePosition;
+                mOriginManager = GSYVideoManager.instance();
+                updateLastKnownChangePosition(getCurrentPositionWhenPlaying());
+                mPendingSourcePosition = position;
+                mWasPlayingBeforeChange = mCurrentState == GSYVideoPlayer.CURRENT_STATE_PLAYING;
+                mNeedMuteBeforeChange = mOriginManager.isNeedMute();
+                mChangeSeekPosition = getLatestOriginChangePosition();
+                if (!isChangeTargetPositionReliable(mChangeSeekPosition)) {
+                    clearPendingChange();
+                    Toast.makeText(getContext(), "当前位置无法切换", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                showLoading();
                 cancelProgressTimer();
                 hideAllWidget();
                 if (mTitle != null && mTitleTextView != null) {
                     mTitleTextView.setText(mTitle);
                 }
-                mPreSourcePosition = mSourcePosition;
+                mChangeSeekSyncCount = 0;
+                mChangeSeekRetryCount = 0;
                 isChanging = true;
-                mTypeText = name;
+                final int sessionId = ++mChangeSessionId;
                 mSwitchSize.setText(name);
-                mSourcePosition = position;
                 //创建临时管理器执行加载播放
-                mTmpManager = GSYVideoManager.tmpInstance(gsyMediaPlayerListener);
-                mTmpManager.initContext(getContext().getApplicationContext());
-                resolveChangeUrl(mCache, mCachePath, url);
-                mTmpManager.prepare(mUrl, mMapHeadData, mLooping, mSpeed, mCache, mCachePath, null);
-                changeUiToPlayingBufferingShow();
+                try {
+                    mTmpManager = GSYVideoManager.tmpInstance(createChangeMediaPlayerListener(sessionId));
+                    mTmpManager.initContext(getContext().getApplicationContext());
+                    mTmpManager.setNeedMute(true);
+                    mTmpManager.prepare(url, mMapHeadData, mLooping, mSpeed, mCache, mCachePath, null);
+                    postDelayed(mChangeTimeoutRunnable, CHANGE_TIMEOUT_MS);
+                    changeUiToPlayingBufferingShow();
+                } catch (Exception e) {
+                    Debuger.printfError("change video prepare error " + e.getMessage());
+                    cancelChange("切换失败");
+                }
             }
         } else {
             Toast.makeText(getContext(), "已经是 " + name, Toast.LENGTH_LONG).show();
         }
     }
 
+    private boolean isCurrentChangeSession(int sessionId) {
+        return isChanging && mTmpManager != null && sessionId == mChangeSessionId;
+    }
+
+    private boolean resyncChangePositionIfNeeded() {
+        if (!isChanging || mTmpManager == null || !mWasPlayingBeforeChange
+                || mChangeSeekSyncCount >= MAX_CHANGE_SEEK_SYNC_COUNT) {
+            return false;
+        }
+        long latestPosition = getLatestOriginChangePosition();
+        if (latestPosition - mChangeSeekPosition <= CHANGE_SEEK_RESYNC_THRESHOLD_MS) {
+            return false;
+        }
+        mChangeSeekPosition = latestPosition;
+        mChangeSeekSyncCount++;
+        if (mOriginManager != null) {
+            mOriginManager.pause();
+        }
+        mPausedOriginForResync = true;
+        mTmpManager.seekTo(mChangeSeekPosition);
+        return true;
+    }
+
+    private void handleChangeSeekComplete(int sessionId) {
+        if (!isCurrentChangeSession(sessionId)) {
+            return;
+        }
+        if (resyncChangePositionIfNeeded()) {
+            return;
+        }
+        if (isTmpSeekPositionAcceptable()) {
+            commitChange();
+            return;
+        }
+        if (mChangeSeekRetryCount < MAX_CHANGE_SEEK_RETRY_COUNT) {
+            retryTmpSeek(sessionId);
+        } else {
+            Debuger.printfError("change video cancel, target seek is not accurate. target="
+                    + mChangeSeekPosition + ", tmp=" + getTmpCurrentPosition());
+            cancelChange("目标视频不支持精准切换");
+        }
+    }
+
+    private void retryTmpSeek(final int sessionId) {
+        mChangeSeekRetryCount++;
+        mChangeSeekPosition = getLatestOriginChangePosition();
+        if (!isChangeTargetPositionReliable(mChangeSeekPosition)) {
+            cancelChange("当前位置无法切换");
+            return;
+        }
+        Debuger.printfError("change video seek retry " + mChangeSeekRetryCount
+                + ", target=" + mChangeSeekPosition + ", tmp=" + getTmpCurrentPosition());
+        postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isCurrentChangeSession(sessionId)) {
+                    mTmpManager.seekTo(mChangeSeekPosition);
+                }
+            }
+        }, CHANGE_SEEK_RETRY_DELAY_MS);
+    }
+
+    private boolean isTmpSeekPositionAcceptable() {
+        long tmpPosition = getTmpCurrentPosition();
+        if (mChangeSeekPosition <= CHANGE_COMMIT_POSITION_TOLERANCE_MS) {
+            return tmpPosition <= CHANGE_COMMIT_POSITION_TOLERANCE_MS;
+        }
+        return Math.abs(tmpPosition - mChangeSeekPosition) <= CHANGE_COMMIT_POSITION_TOLERANCE_MS;
+    }
+
+    private long getTmpCurrentPosition() {
+        try {
+            if (mTmpManager != null) {
+                return mTmpManager.getCurrentPosition();
+            }
+        } catch (Exception e) {
+            Debuger.printfError("get tmp position error " + e.getMessage());
+        }
+        return 0;
+    }
+
+    private void commitChange() {
+        if (!isChanging || mTmpManager == null || !isValidSourcePosition(mPendingSourcePosition)) {
+            return;
+        }
+        if (!isViewActiveForChange()) {
+            cancelChangeForLifecycle();
+            return;
+        }
+        removeCallbacks(mChangeTimeoutRunnable);
+        GSYVideoBaseManager manager = mOriginManager != null ? mOriginManager : GSYVideoManager.instance();
+        GSYVideoManager tmpManager = mTmpManager;
+        try {
+            tmpManager.setLastListener(manager.lastListener());
+            tmpManager.setListener(manager.listener());
+            if (mWasPlayingBeforeChange) {
+                tmpManager.setNeedMute(mNeedMuteBeforeChange);
+            } else {
+                tmpManager.pause();
+                tmpManager.setNeedMute(mNeedMuteBeforeChange);
+            }
+
+            manager.setDisplay(null);
+            tmpManager.setDisplay(mSurface);
+
+            mTmpManager = null;
+            GSYVideoManager.changeManager(tmpManager);
+            applySourcePosition(mPendingSourcePosition);
+            resolveChangedResult();
+            manager.releaseMediaPlayer();
+        } catch (Exception e) {
+            Debuger.printfError("commit video change error " + e.getMessage());
+            try {
+                manager.setDisplay(mSurface);
+            } catch (Exception ignore) {
+                // ignore restore failure
+            }
+            mTmpManager = tmpManager;
+            cancelChange("切换失败");
+        }
+    }
+
     private void resolveChangedResult() {
         isChanging = false;
-        mTmpManager = null;
-        final String name = mUrlList.get(mSourcePosition).getName();
-        final String url = mUrlList.get(mSourcePosition).getUrl();
-        mTypeText = name;
-        mSwitchSize.setText(name);
-        resolveChangeUrl(mCache, mCachePath, url);
+        clearPendingChange();
+        if (mWasPlayingBeforeChange) {
+            setStateAndUi(CURRENT_STATE_PLAYING);
+            changeUiToPlayingClear();
+        } else {
+            setStateAndUi(CURRENT_STATE_PAUSE);
+        }
         hideLoading();
     }
 
     private void releaseTmpManager() {
+        removeCallbacks(mChangeTimeoutRunnable);
         if (mTmpManager != null) {
             mTmpManager.releaseMediaPlayer();
             mTmpManager = null;
+        }
+        if (isChanging) {
+            applySourcePosition(mPreSourcePosition);
+            isChanging = false;
+            clearPendingChange();
+            hideLoading();
+        }
+    }
+
+    private void cancelChange(String message) {
+        cancelChange(message, true, true);
+    }
+
+    private void cancelChangeForLifecycle() {
+        cancelChange(null, false, false);
+    }
+
+    private void cancelChange(String message, boolean resumeOrigin, boolean updateUi) {
+        removeCallbacks(mChangeTimeoutRunnable);
+        if (mTmpManager != null) {
+            mTmpManager.releaseMediaPlayer();
+            mTmpManager = null;
+        }
+        applySourcePosition(mPreSourcePosition);
+        if (resumeOrigin) {
+            resumeOriginIfNeeded();
+        }
+        isChanging = false;
+        clearPendingChange();
+        if (updateUi) {
+            if (mWasPlayingBeforeChange) {
+                setStateAndUi(CURRENT_STATE_PLAYING);
+                changeUiToPlayingClear();
+            } else {
+                setStateAndUi(CURRENT_STATE_PAUSE);
+            }
+        }
+        hideLoading();
+        if (message != null) {
+            Toast.makeText(mContext, message, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void clearPendingChange() {
+        mPendingSourcePosition = INVALID_SOURCE_POSITION;
+        mOriginManager = null;
+        mChangeSeekPosition = 0;
+        mChangeSeekSyncCount = 0;
+        mChangeSeekRetryCount = 0;
+        mPausedOriginForResync = false;
+    }
+
+    private boolean isValidSourcePosition(int position) {
+        return mUrlList != null && position >= 0 && position < mUrlList.size();
+    }
+
+    private long getLatestOriginChangePosition() {
+        long currentPosition = 0;
+        try {
+            if (mOriginManager != null) {
+                currentPosition = mOriginManager.getCurrentPosition();
+            }
+        } catch (Exception e) {
+            Debuger.printfError("get origin position error " + e.getMessage());
+        }
+        if (currentPosition <= 0) {
+            currentPosition = getCurrentPositionWhenPlaying();
+        }
+        if (currentPosition <= 0) {
+            currentPosition = mLastKnownChangePosition;
+        }
+        if (currentPosition <= 0) {
+            return mChangeSeekPosition;
+        }
+        updateLastKnownChangePosition(currentPosition);
+        return Math.max(mChangeSeekPosition, currentPosition);
+    }
+
+    private boolean isChangeTargetPositionReliable(long position) {
+        return position > 0;
+    }
+
+    private void updateLastKnownChangePosition(long position) {
+        if (position > 0) {
+            mLastKnownChangePosition = position;
+        }
+    }
+
+    private boolean isSurfaceAvailableForChange() {
+        return mSurface != null && mSurface.isValid();
+    }
+
+    private boolean isViewActiveForChange() {
+        return getWindowToken() != null && isSurfaceAvailableForChange();
+    }
+
+    private void resumeOriginIfNeeded() {
+        if (mPausedOriginForResync && mWasPlayingBeforeChange && isSurfaceAvailableForChange()
+                && mOriginManager != null) {
+            mOriginManager.start();
         }
     }
 
@@ -349,12 +633,39 @@ public class SmartPickVideo extends StandardGSYVideoPlayer {
     }
 
     @Override
+    protected void setProgressAndTime(long progress, long secProgress, long currentTime, long totalTime, boolean forceChange) {
+        updateLastKnownChangePosition(currentTime);
+        super.setProgressAndTime(progress, secProgress, currentTime, totalTime, forceChange);
+    }
+
+    @Override
+    public void onVideoPause() {
+        if (isChanging) {
+            cancelChangeForLifecycle();
+        }
+        super.onVideoPause();
+    }
+
+    @Override
     public boolean onSurfaceDestroyed(Surface surface) {
+        if (isChanging) {
+            cancelChangeForLifecycle();
+        }
         //清空释放
         setDisplay(null);
         //同一消息队列中去release
         //todo 需要处理为什么全屏时全屏的surface会被释放了
         //releaseSurface(surface);
         return true;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (isChanging) {
+            cancelChangeForLifecycle();
+        } else {
+            releaseTmpManager();
+        }
+        super.onDetachedFromWindow();
     }
 }
