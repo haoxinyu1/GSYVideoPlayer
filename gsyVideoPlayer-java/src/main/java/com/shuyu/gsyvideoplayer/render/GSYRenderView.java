@@ -136,8 +136,11 @@ public class GSYRenderView {
      * @param shotHigh 是否需要高清的
      */
     public void taskShotPic(GSYVideoShotListener gsyVideoShotListener, boolean shotHigh) {
-        if (mShowView != null)
+        if (mShowView != null) {
             mShowView.taskShotPic(gsyVideoShotListener, shotHigh);
+        } else if (gsyVideoShotListener != null) {
+            gsyVideoShotListener.getBitmap(null);
+        }
     }
 
     /**
@@ -153,8 +156,11 @@ public class GSYRenderView {
      * @param high 是否需要高清的
      */
     public void saveFrame(final File file, final boolean high, final GSYVideoShotSaveListener gsyVideoShotSaveListener) {
-        if (mShowView != null)
+        if (mShowView != null) {
             mShowView.saveFrame(file, high, gsyVideoShotSaveListener);
+        } else if (gsyVideoShotSaveListener != null) {
+            gsyVideoShotSaveListener.result(false, file);
+        }
     }
 
     /**

@@ -52,6 +52,8 @@ public abstract class GSYVideoGLViewBaseRender implements GLSurfaceView.Renderer
 
     protected GSYVideoGLRenderErrorListener mGSYVideoGLRenderErrorListener;
 
+    protected GSYVideoShotListener mGSYVideoShotListener;
+
     protected Handler mHandler = new Handler();
 
     public abstract void releaseAll();
@@ -191,12 +193,24 @@ public abstract class GSYVideoGLViewBaseRender implements GLSurfaceView.Renderer
      * 打开截图
      */
     public void takeShotPic() {
+        final GSYVideoShotListener listener = mGSYVideoShotListener;
+        mGSYVideoShotListener = null;
+        if (listener != null) {
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    listener.getBitmap(null);
+                }
+            });
+        }
     }
 
     /**
      * 截图监听
      */
     public void setGSYVideoShotListener(GSYVideoShotListener listener, boolean high) {
+        this.mGSYVideoShotListener = listener;
+        this.mHighShot = high;
     }
 
     /**
@@ -256,5 +270,4 @@ public abstract class GSYVideoGLViewBaseRender implements GLSurfaceView.Renderer
         this.mGSYVideoGLRenderErrorListener = videoGLRenderErrorListener;
     }
 }
-
 

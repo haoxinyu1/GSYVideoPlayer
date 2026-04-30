@@ -77,8 +77,6 @@ public class GSYVideoGLViewSimpleRender extends GSYVideoGLViewBaseRender {
 
     private SurfaceTexture mSurface;
 
-    private GSYVideoShotListener mGSYVideoShotListener;
-
     private GSYVideoGLView.ShaderInterface mEffect = new NoEffect();
 
     public GSYVideoGLViewSimpleRender() {
@@ -231,8 +229,25 @@ public class GSYVideoGLViewSimpleRender extends GSYVideoGLViewBaseRender {
         if (mTakeShotPic) {
             mTakeShotPic = false;
             if (mGSYVideoShotListener != null) {
-                Bitmap bitmap = createBitmapFromGLSurface(0, 0, mSurfaceView.getWidth(), mSurfaceView.getHeight(), glUnused);
-                mGSYVideoShotListener.getBitmap(bitmap);
+                final GSYVideoShotListener listener = mGSYVideoShotListener;
+                mGSYVideoShotListener = null;
+                int width = mSurfaceView != null ? mSurfaceView.getWidth() : 0;
+                int height = mSurfaceView != null ? mSurfaceView.getHeight() : 0;
+                Bitmap bitmap = null;
+                if (width > 0 && height > 0) {
+                    try {
+                        bitmap = createBitmapFromGLSurface(0, 0, width, height, glUnused);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                final Bitmap result = bitmap;
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        listener.getBitmap(result);
+                    }
+                });
             }
         }
     }
@@ -311,9 +326,6 @@ public class GSYVideoGLViewSimpleRender extends GSYVideoGLViewBaseRender {
      * 截图监听
      */
     public void setGSYVideoShotListener(GSYVideoShotListener listener, boolean high) {
-        this.mGSYVideoShotListener = listener;
-        this.mHighShot = high;
+        super.setGSYVideoShotListener(listener, high);
     }
 }
-
-

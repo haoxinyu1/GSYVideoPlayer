@@ -151,11 +151,11 @@ public class GSYVideoGLView extends GLSurfaceView implements GLSurfaceListener, 
      */
     @Override
     public void taskShotPic(GSYVideoShotListener gsyVideoShotListener, boolean shotHigh) {
-        if (gsyVideoShotListener != null) {
-            setGSYVideoShotListener(gsyVideoShotListener, shotHigh);
-            takeShotPic();
-
+        if (gsyVideoShotListener == null) {
+            return;
         }
+        setGSYVideoShotListener(gsyVideoShotListener, shotHigh);
+        takeShotPic();
     }
 
     /**
@@ -168,11 +168,9 @@ public class GSYVideoGLView extends GLSurfaceView implements GLSurfaceListener, 
         GSYVideoShotListener gsyVideoShotListener = new GSYVideoShotListener() {
             @Override
             public void getBitmap(Bitmap bitmap) {
-                if (bitmap == null) {
-                    gsyVideoShotSaveListener.result(false, file);
-                } else {
-                    FileUtils.saveBitmap(bitmap, file);
-                    gsyVideoShotSaveListener.result(true, file);
+                boolean success = bitmap != null && FileUtils.saveBitmapToFile(bitmap, file);
+                if (gsyVideoShotSaveListener != null) {
+                    gsyVideoShotSaveListener.result(success, file);
                 }
             }
         };
@@ -333,6 +331,7 @@ public class GSYVideoGLView extends GLSurfaceView implements GLSurfaceListener, 
 
     public void takeShotPic() {
         mRenderer.takeShotPic();
+        requestRender();
     }
 
 

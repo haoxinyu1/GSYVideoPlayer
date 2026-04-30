@@ -11,6 +11,7 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.PixelCopy;
 import android.view.SurfaceHolder;
@@ -140,31 +141,61 @@ public class GSYSurfaceView extends SurfaceView implements SurfaceHolder.Callbac
      * @param shotHigh 是否需要高清的
      */
     public void taskShotPic(GSYVideoShotListener gsyVideoShotListener, boolean shotHigh) {
-        Bitmap bitmap;
+        if (gsyVideoShotListener == null) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            Debuger.printfLog(getClass().getSimpleName() +
+                " Build.VERSION.SDK_INT < Build.VERSION_CODES.N not support taskShotPic now");
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
+
+        final Bitmap bitmap;
         if (shotHigh) {
             bitmap = initCoverHigh();
         } else {
             bitmap = initCover();
         }
+
+        if (bitmap == null || getHolder() == null || getHolder().getSurface() == null
+            || !getHolder().getSurface().isValid()) {
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
+
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
+        final HandlerThread handlerThread = new HandlerThread("GSY-PixelCopy");
         try {
-            HandlerThread handlerThread = new HandlerThread("PixelCopier");
             handlerThread.start();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                PixelCopy.request(this, bitmap, new PixelCopy.OnPixelCopyFinishedListener() {
-                    @Override
-                    public void onPixelCopyFinished(int copyResult) {
-                        if (copyResult == PixelCopy.SUCCESS) {
-                            gsyVideoShotListener.getBitmap(bitmap);
+            PixelCopy.request(this, bitmap, new PixelCopy.OnPixelCopyFinishedListener() {
+                @Override
+                public void onPixelCopyFinished(int copyResult) {
+                    final Bitmap result;
+                    if (copyResult == PixelCopy.SUCCESS) {
+                        result = bitmap;
+                    } else {
+                        if (!bitmap.isRecycled()) {
+                            bitmap.recycle();
                         }
-                        handlerThread.quitSafely();
+                        result = null;
                     }
-                }, new Handler());
-            } else {
-                Debuger.printfLog(getClass().getSimpleName() +
-                    " Build.VERSION.SDK_INT < Build.VERSION_CODES.N not support taskShotPic now");
-            }
+                    handlerThread.quitSafely();
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            gsyVideoShotListener.getBitmap(result);
+                        }
+                    });
+                }
+            }, new Handler(handlerThread.getLooper()));
         } catch (Exception e) {
             e.printStackTrace();
+            handlerThread.quitSafely();
+            if (!bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+            gsyVideoShotListener.getBitmap(null);
         }
     }
 
@@ -174,7 +205,15 @@ public class GSYSurfaceView extends SurfaceView implements SurfaceHolder.Callbac
      * @param high 是否需要高清的
      */
     public void saveFrame(final File file, final boolean high, final GSYVideoShotSaveListener gsyVideoShotSaveListener) {
-        Debuger.printfLog(getClass().getSimpleName() + " not support saveFrame now, use taskShotPic");
+        taskShotPic(new GSYVideoShotListener() {
+            @Override
+            public void getBitmap(Bitmap bitmap) {
+                boolean success = bitmap != null && FileUtils.saveBitmapToFile(bitmap, file);
+                if (gsyVideoShotSaveListener != null) {
+                    gsyVideoShotSaveListener.result(success, file);
+                }
+            }
+        }, high);
     }
 
     @Override

@@ -2,10 +2,8 @@ package com.shuyu.gsyvideoplayer.utils;
 
 import android.graphics.Bitmap;
 import android.os.Environment;
-import android.widget.Toast;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 
@@ -61,14 +59,49 @@ public class FileUtils {
     }
 
     public static void saveBitmap(Bitmap bitmap, File file) {
-        if (bitmap != null) {
-            OutputStream outputStream;
+        saveBitmapToFile(bitmap, file);
+    }
+
+    public static boolean saveBitmapToFile(Bitmap bitmap, File file) {
+        if (bitmap == null) {
+            return false;
+        }
+        if (file == null) {
+            if (!bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+            return false;
+        }
+        boolean success = false;
+        try {
+            File parentFile = file.getParentFile();
+            if (parentFile != null && !parentFile.exists() && !parentFile.mkdirs()) {
+                return false;
+            }
+            OutputStream outputStream = null;
             try {
                 outputStream = new FileOutputStream(file);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+                success = bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+                outputStream.flush();
+                return success;
+            } finally {
+                if (outputStream != null) {
+                    outputStream.close();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (!bitmap.isRecycled()) {
                 bitmap.recycle();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            }
+            if (!success && file.exists()) {
+                try {
+                    file.delete();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     }

@@ -3,7 +3,12 @@ package com.example.gsyvideoplayer.view;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.AttributeSet;
+import android.view.PixelCopy;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -16,6 +21,8 @@ import com.shuyu.gsyvideoplayer.render.glrender.GSYVideoGLViewBaseRender;
 import com.shuyu.gsyvideoplayer.render.view.GSYVideoGLView;
 import com.shuyu.gsyvideoplayer.render.view.IGSYRenderView;
 import com.shuyu.gsyvideoplayer.render.view.listener.IGSYSurfaceListener;
+import com.shuyu.gsyvideoplayer.utils.Debuger;
+import com.shuyu.gsyvideoplayer.utils.FileUtils;
 import com.shuyu.gsyvideoplayer.utils.MeasureHelper;
 
 import java.io.File;
@@ -110,12 +117,69 @@ public class CustomTextureSurface extends SurfaceView implements IGSYRenderView,
 
     @Override
     public void taskShotPic(GSYVideoShotListener gsyVideoShotListener, boolean shotHigh) {
+        if (gsyVideoShotListener == null) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            Debuger.printfLog(getClass().getSimpleName() +
+                " Build.VERSION.SDK_INT < Build.VERSION_CODES.N not support taskShotPic now");
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
 
+        final Bitmap bitmap = shotHigh ? initCoverHigh() : initCover();
+        if (bitmap == null || getHolder() == null || getHolder().getSurface() == null
+            || !getHolder().getSurface().isValid()) {
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
+
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
+        final HandlerThread handlerThread = new HandlerThread("GSY-CustomPixelCopy");
+        try {
+            handlerThread.start();
+            PixelCopy.request(this, bitmap, new PixelCopy.OnPixelCopyFinishedListener() {
+                @Override
+                public void onPixelCopyFinished(int copyResult) {
+                    final Bitmap result;
+                    if (copyResult == PixelCopy.SUCCESS) {
+                        result = bitmap;
+                    } else {
+                        if (!bitmap.isRecycled()) {
+                            bitmap.recycle();
+                        }
+                        result = null;
+                    }
+                    handlerThread.quitSafely();
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            gsyVideoShotListener.getBitmap(result);
+                        }
+                    });
+                }
+            }, new Handler(handlerThread.getLooper()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            handlerThread.quitSafely();
+            if (!bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+            gsyVideoShotListener.getBitmap(null);
+        }
     }
 
     @Override
     public void saveFrame(File file, boolean high, GSYVideoShotSaveListener gsyVideoShotSaveListener) {
-
+        taskShotPic(new GSYVideoShotListener() {
+            @Override
+            public void getBitmap(Bitmap bitmap) {
+                boolean success = bitmap != null && FileUtils.saveBitmapToFile(bitmap, file);
+                if (gsyVideoShotSaveListener != null) {
+                    gsyVideoShotSaveListener.result(success, file);
+                }
+            }
+        }, high);
     }
 
     @Override
@@ -125,12 +189,18 @@ public class CustomTextureSurface extends SurfaceView implements IGSYRenderView,
 
     @Override
     public Bitmap initCover() {
-        return null;
+        if (getSizeW() <= 0 || getSizeH() <= 0) {
+            return null;
+        }
+        return Bitmap.createBitmap(getSizeW(), getSizeH(), Bitmap.Config.RGB_565);
     }
 
     @Override
     public Bitmap initCoverHigh() {
-        return null;
+        if (getSizeW() <= 0 || getSizeH() <= 0) {
+            return null;
+        }
+        return Bitmap.createBitmap(getSizeW(), getSizeH(), Bitmap.Config.ARGB_8888);
     }
 
     @Override

@@ -164,6 +164,9 @@ public class GSYTextureView extends TextureView implements TextureView.SurfaceTe
      */
     @Override
     public void taskShotPic(GSYVideoShotListener gsyVideoShotListener, boolean shotHigh) {
+        if (gsyVideoShotListener == null) {
+            return;
+        }
         if (shotHigh) {
             gsyVideoShotListener.getBitmap(initCoverHigh());
         } else {
@@ -181,11 +184,9 @@ public class GSYTextureView extends TextureView implements TextureView.SurfaceTe
         GSYVideoShotListener gsyVideoShotListener = new GSYVideoShotListener() {
             @Override
             public void getBitmap(Bitmap bitmap) {
-                if (bitmap == null) {
-                    gsyVideoShotSaveListener.result(false, file);
-                } else {
-                    FileUtils.saveBitmap(bitmap, file);
-                    gsyVideoShotSaveListener.result(true, file);
+                boolean success = bitmap != null && FileUtils.saveBitmapToFile(bitmap, file);
+                if (gsyVideoShotSaveListener != null) {
+                    gsyVideoShotSaveListener.result(success, file);
                 }
             }
         };

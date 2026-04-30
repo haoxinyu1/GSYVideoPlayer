@@ -4,13 +4,19 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
@@ -22,7 +28,9 @@ import android.widget.Toast;
 import com.shuyu.gsyvideoplayer.R;
 import com.shuyu.gsyvideoplayer.listener.GSYVideoShotListener;
 import com.shuyu.gsyvideoplayer.listener.GSYVideoShotSaveListener;
+import com.shuyu.gsyvideoplayer.render.GSYRenderView;
 import com.shuyu.gsyvideoplayer.utils.Debuger;
+import com.shuyu.gsyvideoplayer.utils.FileUtils;
 import com.shuyu.gsyvideoplayer.utils.NetworkUtils;
 import com.shuyu.gsyvideoplayer.video.base.GSYBaseVideoPlayer;
 import com.shuyu.gsyvideoplayer.video.base.GSYVideoPlayer;
@@ -871,6 +879,8 @@ public class StandardGSYVideoPlayer extends GSYVideoPlayer {
     public void taskShotPic(GSYVideoShotListener gsyVideoShotListener, boolean high) {
         if (getCurrentPlayer().getRenderProxy() != null) {
             getCurrentPlayer().getRenderProxy().taskShotPic(gsyVideoShotListener, high);
+        } else if (gsyVideoShotListener != null) {
+            gsyVideoShotListener.getBitmap(null);
         }
     }
 
@@ -889,7 +899,192 @@ public class StandardGSYVideoPlayer extends GSYVideoPlayer {
     public void saveFrame(final File file, final boolean high, final GSYVideoShotSaveListener gsyVideoShotSaveListener) {
         if (getCurrentPlayer().getRenderProxy() != null) {
             getCurrentPlayer().getRenderProxy().saveFrame(file, high, gsyVideoShotSaveListener);
+        } else if (gsyVideoShotSaveListener != null) {
+            gsyVideoShotSaveListener.result(false, file);
         }
+    }
+
+    /**
+     * 获取完整播放器截图，包含视频帧和播放器 UI。
+     */
+    public void taskShotPicWithView(GSYVideoShotListener gsyVideoShotListener) {
+        taskShotPicWithView(gsyVideoShotListener, false);
+    }
+
+    /**
+     * 获取完整播放器截图，包含视频帧和播放器 UI。
+     *
+     * @param high 是否需要高清的
+     */
+    public void taskShotPicWithView(final GSYVideoShotListener gsyVideoShotListener, final boolean high) {
+        if (gsyVideoShotListener == null) {
+            return;
+        }
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    taskShotPicWithView(gsyVideoShotListener, high);
+                }
+            });
+            return;
+        }
+
+        final StandardGSYVideoPlayer currentPlayer = getCurrentStandardPlayer();
+        if (currentPlayer.getWidth() <= 0 || currentPlayer.getHeight() <= 0) {
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
+
+        final Bitmap.Config bitmapConfig = high ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565;
+        final Bitmap playerBitmap;
+        try {
+            playerBitmap = Bitmap.createBitmap(currentPlayer.getWidth(), currentPlayer.getHeight(), bitmapConfig);
+        } catch (Exception e) {
+            e.printStackTrace();
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
+
+        final GSYRenderView renderProxy = currentPlayer.getRenderProxy();
+        final View renderView = renderProxy != null ? renderProxy.getShowView() : null;
+        if (renderView == null) {
+            if (!playerBitmap.isRecycled()) {
+                playerBitmap.recycle();
+            }
+            gsyVideoShotListener.getBitmap(null);
+            return;
+        }
+
+        currentPlayer.taskShotPic(new GSYVideoShotListener() {
+            @Override
+            public void getBitmap(Bitmap bitmap) {
+                if (bitmap == null) {
+                    if (!playerBitmap.isRecycled()) {
+                        playerBitmap.recycle();
+                    }
+                    gsyVideoShotListener.getBitmap(null);
+                    return;
+                }
+                Canvas canvas = new Canvas(playerBitmap);
+                canvas.drawBitmap(bitmap, null, resolveRenderRect(currentPlayer, renderView), null);
+                if (!bitmap.isRecycled()) {
+                    bitmap.recycle();
+                }
+                drawPlayerOverlay(currentPlayer, renderView, playerBitmap);
+                gsyVideoShotListener.getBitmap(playerBitmap);
+            }
+        }, high);
+    }
+
+    /**
+     * 保存完整播放器截图，包含视频帧和播放器 UI。
+     */
+    public void saveFrameWithView(final File file, GSYVideoShotSaveListener gsyVideoShotSaveListener) {
+        saveFrameWithView(file, false, gsyVideoShotSaveListener);
+    }
+
+    /**
+     * 保存完整播放器截图，包含视频帧和播放器 UI。
+     *
+     * @param high 是否需要高清的
+     */
+    public void saveFrameWithView(final File file, final boolean high, final GSYVideoShotSaveListener gsyVideoShotSaveListener) {
+        taskShotPicWithView(new GSYVideoShotListener() {
+            @Override
+            public void getBitmap(Bitmap bitmap) {
+                boolean success = bitmap != null && FileUtils.saveBitmapToFile(bitmap, file);
+                if (gsyVideoShotSaveListener != null) {
+                    gsyVideoShotSaveListener.result(success, file);
+                }
+            }
+        }, high);
+    }
+
+    private StandardGSYVideoPlayer getCurrentStandardPlayer() {
+        GSYBaseVideoPlayer currentPlayer = getCurrentPlayer();
+        if (currentPlayer instanceof StandardGSYVideoPlayer) {
+            return (StandardGSYVideoPlayer) currentPlayer;
+        }
+        return this;
+    }
+
+    private Rect resolveRenderRect(StandardGSYVideoPlayer player, View renderView) {
+        if (renderView == null || renderView.getWidth() <= 0 || renderView.getHeight() <= 0) {
+            return new Rect(0, 0, player.getWidth(), player.getHeight());
+        }
+        int[] playerLocation = new int[2];
+        int[] renderLocation = new int[2];
+        player.getLocationInWindow(playerLocation);
+        renderView.getLocationInWindow(renderLocation);
+        int left = renderLocation[0] - playerLocation[0];
+        int top = renderLocation[1] - playerLocation[1];
+        return new Rect(left, top, left + renderView.getWidth(), top + renderView.getHeight());
+    }
+
+    private void drawPlayerOverlay(StandardGSYVideoPlayer player, View renderView, Bitmap bitmap) {
+        Canvas canvas = new Canvas(bitmap);
+        drawOverlayChildren(canvas, player, renderView, player.mTextureViewContainer);
+    }
+
+    private void drawOverlayChildren(Canvas canvas, ViewGroup parent, View renderView, View renderContainer) {
+        int childCount = parent.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            drawOverlayView(canvas, parent.getChildAt(i), renderView, renderContainer);
+        }
+    }
+
+    private void drawOverlayView(Canvas canvas, View view, View renderView, View renderContainer) {
+        if (view == null || view.getVisibility() != VISIBLE || view.getAlpha() <= 0f
+            || view == renderView || view == renderContainer || view.getId() == R.id.surface_container) {
+            return;
+        }
+
+        int width = view.getWidth();
+        int height = view.getHeight();
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+
+        int saveCount = canvas.save();
+        canvas.translate(view.getLeft(), view.getTop());
+        if (view.getRotation() != 0 || view.getScaleX() != 1f || view.getScaleY() != 1f) {
+            canvas.translate(view.getPivotX(), view.getPivotY());
+            canvas.rotate(view.getRotation());
+            canvas.scale(view.getScaleX(), view.getScaleY());
+            canvas.translate(-view.getPivotX(), -view.getPivotY());
+        }
+        canvas.clipRect(0, 0, width, height);
+
+        int alphaSaveCount = -1;
+        if (view.getAlpha() < 1f) {
+            alphaSaveCount = canvas.saveLayerAlpha(0, 0, width, height, (int) (view.getAlpha() * 255));
+        }
+
+        if (view instanceof ViewGroup && (isAncestorOf(view, renderContainer) || isAncestorOf(view, renderView))) {
+            drawOverlayChildren(canvas, (ViewGroup) view, renderView, renderContainer);
+        } else {
+            view.draw(canvas);
+        }
+
+        if (alphaSaveCount > 0) {
+            canvas.restoreToCount(alphaSaveCount);
+        }
+        canvas.restoreToCount(saveCount);
+    }
+
+    private boolean isAncestorOf(View parent, View child) {
+        if (parent == null || child == null) {
+            return false;
+        }
+        ViewParent viewParent = child.getParent();
+        while (viewParent instanceof View) {
+            if (viewParent == parent) {
+                return true;
+            }
+            viewParent = viewParent.getParent();
+        }
+        return false;
     }
 
     /**
