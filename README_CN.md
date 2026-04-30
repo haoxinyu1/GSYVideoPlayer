@@ -428,6 +428,17 @@ ExoSourceManager.setExoMediaSourceInterceptListener(new ExoMediaSourceInterceptL
 
 <img src="./img/07.gif" height="240px"/>
 
+当前 demo 使用 WebVTT 缩略图轨道实现预览，不再对原视频做客户端批量抽帧。VTT 可以指向独立图片，也可以指向雪碧图坐标，例如：
+
+```text
+WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+160p-00001.jpg#xywh=0,0,284,160
+```
+
+库层提供了 `GSYVideoPreviewVttParser`、`GSYVideoPreviewProvider`、`GSYVideoPreviewFrame`，业务层只需要把 VTT 解析成 provider，再按拖动进度取出对应图片和裁剪区域。demo 可参考 `PreViewGSYVideoPlayer#setPreviewVttUrl(String previewVttUrl)`。
+
 ## 五、近期版本
 
 ### v12.1.0 (2026-04-01)

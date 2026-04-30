@@ -25,6 +25,8 @@ import com.shuyu.gsyvideoplayer.utils.CommonUtil;
 
 public class WebDetailActivity extends GSYBaseActivityDetail<StandardGSYVideoPlayer> {
 
+    private static final String PREVIEW_VTT_URL =
+        "https://stdlwcdn.lwcdn.com/i/8fdb4e20-8ebb-4590-8844-dae39680d837/160p.vtt";
 
     private boolean isSmall;
 
@@ -45,6 +47,8 @@ public class WebDetailActivity extends GSYBaseActivityDetail<StandardGSYVideoPla
         GSYVideoType.setRenderType(GSYVideoType.SURFACE);
 
         resolveNormalVideoUI();
+
+        binding.webPlayer.setPreviewVttUrl(PREVIEW_VTT_URL);
 
         initVideoBuilderMode();
 

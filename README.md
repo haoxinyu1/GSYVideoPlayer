@@ -426,6 +426,17 @@ ExoSourceManager.setExoMediaSourceInterceptListener(new ExoMediaSourceInterceptL
 
 <img src="./img/07.gif" height="240px"/>
 
+The demo now uses a WebVTT thumbnail track for seek preview instead of extracting many frames from the original video on the client. The VTT can point to separate images or sprite coordinates:
+
+```text
+WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+160p-00001.jpg#xywh=0,0,284,160
+```
+
+Library APIs include `GSYVideoPreviewVttParser`, `GSYVideoPreviewProvider`, and `GSYVideoPreviewFrame`. The app layer loads the frame image and crops the sprite area if needed. See `PreViewGSYVideoPlayer#setPreviewVttUrl(String previewVttUrl)`.
+
 ## V. Recent Versions
 
 ### v12.1.0 (2026-04-01)
