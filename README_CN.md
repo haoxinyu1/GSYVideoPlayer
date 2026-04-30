@@ -24,7 +24,7 @@
  **播放**      | **单例播放、多个同时播放、视频列表滑动自动播放、列表切换详情页面无缝播放。**
  **窗口**      | **小窗口、多窗体下（包括桌面）的小窗口播放。**
  **广告**      | **片头广告、跳过广告支持、中间插入广告功能。**
- **字幕**      | **[media3(exo2)模式下支持自定增加外挂字幕](https://github.com/CarGuo/GSYVideoPlayer/tree/master/app/src/main/java/com/example/gsyvideoplayer/exosubtitle)。**
+ **字幕**      | **支持通用外挂字幕 Overlay，SRT/WebVTT 可跨 IJK、Media3(EXOPlayer)、MediaPlayer 等内核使用；Media3 内嵌字幕可桥接到同一套 UI。[说明](doc/SUBTITLE_CN.md)。**
  **dash**    | **media3(exo2) 模式支持dash**
  **stream**  | **支持元数据播放**
  **适配 16k**  | **ex_so 适配 16K Page Size**

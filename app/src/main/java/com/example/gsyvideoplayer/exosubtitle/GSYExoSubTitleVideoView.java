@@ -2,19 +2,18 @@ package com.example.gsyvideoplayer.exosubtitle;
 
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Color;
+import android.graphics.Point;
 import android.util.AttributeSet;
-import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 
 import androidx.media3.common.Player;
+import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.ui.CaptionStyleCompat;
-import androidx.media3.ui.SubtitleView;
 
-import com.example.gsyvideoplayer.R;
+import com.shuyu.gsyvideoplayer.subtitle.GSYSubtitleMime;
+import com.shuyu.gsyvideoplayer.subtitle.GSYSubtitleSource;
 import com.shuyu.gsyvideoplayer.utils.Debuger;
 import com.shuyu.gsyvideoplayer.video.NormalGSYVideoPlayer;
 import com.shuyu.gsyvideoplayer.video.base.GSYBaseVideoPlayer;
@@ -24,7 +23,6 @@ import java.util.HashMap;
 
 public class GSYExoSubTitleVideoView extends NormalGSYVideoPlayer implements Player.Listener {
 
-    private SubtitleView mSubtitleView;
     private String mSubTitle;
 
     public GSYExoSubTitleVideoView(Context context, Boolean fullFlag) {
@@ -42,16 +40,11 @@ public class GSYExoSubTitleVideoView extends NormalGSYVideoPlayer implements Pla
     @Override
     protected void init(Context context) {
         super.init(context);
-        mSubtitleView = findViewById(R.id.sub_title_view);
-
-
-        mSubtitleView.setStyle(new CaptionStyleCompat(Color.GREEN, Color.TRANSPARENT, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, CaptionStyleCompat.EDGE_TYPE_NONE, null));
-        mSubtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
     }
 
     @Override
     public int getLayoutId() {
-        return R.layout.video_layout_subtitle;
+        return com.shuyu.gsyvideoplayer.R.layout.video_layout_standard;
     }
 
 
@@ -77,15 +70,44 @@ public class GSYExoSubTitleVideoView extends NormalGSYVideoPlayer implements Pla
         }
         mBackUpPlayingBufferState = -1;
 
-        getGSYVideoManager().prepare(mUrl, mSubTitle, this, (mMapHeadData == null) ? new HashMap<String, String>() : mMapHeadData, mLooping, mSpeed, mCache, mCachePath, mOverrideExtension);
+        if (mSubTitle != null) {
+            setSubtitleSource(new GSYSubtitleSource.Builder(mSubTitle)
+                .setId("legacy-exo-subtitle")
+                .setMimeType(GSYSubtitleMime.infer(mSubTitle, null))
+                .setLabel("外挂字幕")
+                .setDefault(true)
+                .setHeaders(mMapHeadData)
+                .build());
+        }
+        getGSYVideoManager().prepare(mUrl, null, this, (mMapHeadData == null) ? new HashMap<String, String>() : mMapHeadData, mLooping, mSpeed, mCache, mCachePath, mOverrideExtension);
         setStateAndUi(CURRENT_STATE_PREPAREING);
     }
 
 
     @Override
     public void onCues(CueGroup cueGroup) {
-        if (mSubtitleView != null) {
-            mSubtitleView.setCues(cueGroup.cues);
+        if (cueGroup == null || cueGroup.cues == null || cueGroup.cues.isEmpty()) {
+            clearSubtitleTextFromPlayer();
+            return;
+        }
+        StringBuilder builder = new StringBuilder();
+        for (Cue cue : cueGroup.cues) {
+            if (cue.text == null) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append('\n');
+            }
+            builder.append(cue.text);
+        }
+        setSubtitleTextFromPlayer(builder.toString());
+    }
+
+    @Override
+    protected void cloneParams(GSYBaseVideoPlayer from, GSYBaseVideoPlayer to) {
+        super.cloneParams(from, to);
+        if (from instanceof GSYExoSubTitleVideoView && to instanceof GSYExoSubTitleVideoView) {
+            ((GSYExoSubTitleVideoView) to).mSubTitle = ((GSYExoSubTitleVideoView) from).mSubTitle;
         }
     }
 
@@ -95,6 +117,14 @@ public class GSYExoSubTitleVideoView extends NormalGSYVideoPlayer implements Pla
 
     public void setSubTitle(String subTitle) {
         this.mSubTitle = subTitle;
+        if (subTitle != null) {
+            setSubtitleSource(new GSYSubtitleSource.Builder(subTitle)
+                .setId("legacy-exo-subtitle")
+                .setMimeType(GSYSubtitleMime.infer(subTitle, null))
+                .setLabel("外挂字幕")
+                .setDefault(true)
+                .build());
+        }
     }
 
 
@@ -104,20 +134,45 @@ public class GSYExoSubTitleVideoView extends NormalGSYVideoPlayer implements Pla
     @Override
     public GSYBaseVideoPlayer startWindowFullscreen(Context context, boolean actionBar, boolean statusBar) {
         GSYBaseVideoPlayer gsyBaseVideoPlayer = super.startWindowFullscreen(context, actionBar, statusBar);
-        GSYExoSubTitleVideoView gsyExoSubTitleVideoView = (GSYExoSubTitleVideoView) gsyBaseVideoPlayer;
-        ((GSYExoSubTitlePlayerManager) GSYExoSubTitleVideoManager.instance().getPlayer())
-            .addTextOutputPlaying(gsyExoSubTitleVideoView);
-
+        registerTextOutput(gsyBaseVideoPlayer);
         return gsyBaseVideoPlayer;
+    }
+
+    @Override
+    public GSYBaseVideoPlayer showSmallVideo(Point size, boolean actionBar, boolean statusBar) {
+        GSYBaseVideoPlayer gsyBaseVideoPlayer = super.showSmallVideo(size, actionBar, statusBar);
+        registerTextOutput(gsyBaseVideoPlayer);
+        return gsyBaseVideoPlayer;
+    }
+
+    @Override
+    public void hideSmallVideo() {
+        GSYVideoPlayer smallWindowPlayer = getSmallWindowPlayer();
+        super.hideSmallVideo();
+        unregisterTextOutput(smallWindowPlayer);
     }
 
     @Override
     protected void resolveNormalVideoShow(View oldF, ViewGroup vp, GSYVideoPlayer gsyVideoPlayer) {
         super.resolveNormalVideoShow(oldF, vp, gsyVideoPlayer);
-        GSYExoSubTitleVideoView gsyExoSubTitleVideoView = (GSYExoSubTitleVideoView) gsyVideoPlayer;
-        ((GSYExoSubTitlePlayerManager) GSYExoSubTitleVideoManager.instance().getPlayer())
-            .removeTextOutput(gsyExoSubTitleVideoView);
+        unregisterTextOutput(gsyVideoPlayer);
 
+    }
+
+    private void registerTextOutput(GSYBaseVideoPlayer gsyBaseVideoPlayer) {
+        if (gsyBaseVideoPlayer instanceof GSYExoSubTitleVideoView
+            && GSYExoSubTitleVideoManager.instance().getPlayer() instanceof GSYExoSubTitlePlayerManager) {
+            ((GSYExoSubTitlePlayerManager) GSYExoSubTitleVideoManager.instance().getPlayer())
+                .addTextOutputPlaying((GSYExoSubTitleVideoView) gsyBaseVideoPlayer);
+        }
+    }
+
+    private void unregisterTextOutput(GSYVideoPlayer gsyVideoPlayer) {
+        if (gsyVideoPlayer instanceof GSYExoSubTitleVideoView
+            && GSYExoSubTitleVideoManager.instance().getPlayer() instanceof GSYExoSubTitlePlayerManager) {
+            ((GSYExoSubTitlePlayerManager) GSYExoSubTitleVideoManager.instance().getPlayer())
+                .removeTextOutput((GSYExoSubTitleVideoView) gsyVideoPlayer);
+        }
     }
 
 

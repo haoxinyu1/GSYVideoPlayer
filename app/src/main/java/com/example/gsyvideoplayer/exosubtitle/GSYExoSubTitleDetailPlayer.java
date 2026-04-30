@@ -2,6 +2,7 @@ package com.example.gsyvideoplayer.exosubtitle;
 
 import android.app.AlertDialog;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -33,12 +34,16 @@ import com.shuyu.gsyvideoplayer.cache.CacheFactory;
 import com.shuyu.gsyvideoplayer.listener.GSYSampleCallBack;
 import com.shuyu.gsyvideoplayer.listener.GSYVideoProgressListener;
 import com.shuyu.gsyvideoplayer.listener.LockClickListener;
+import com.shuyu.gsyvideoplayer.subtitle.GSYSubtitleSource;
+import com.shuyu.gsyvideoplayer.subtitle.GSYSubtitleStyle;
 import com.shuyu.gsyvideoplayer.utils.Debuger;
 import com.shuyu.gsyvideoplayer.utils.OrientationUtils;
 import com.shuyu.gsyvideoplayer.video.base.GSYVideoPlayer;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import tv.danmaku.ijk.media.exo2.ExoPlayerCacheManager;
@@ -52,6 +57,9 @@ public class GSYExoSubTitleDetailPlayer extends AppCompatActivity {
 
     private boolean isPlay;
     private boolean isPause;
+    private boolean largeSubtitle;
+    private List<GSYSubtitleSource> subtitleSources;
+    private int subtitleSourceIndex;
 
     private OrientationUtils orientationUtils;
     private ActivityDetailExoSubtitlePlayerBinding binding;
@@ -300,43 +308,45 @@ public class GSYExoSubTitleDetailPlayer extends AppCompatActivity {
         });
 
 
-        ///exo 切换音轨
+        binding.change.setText("GSY SUBTITLE OFF");
         binding.change.setOnClickListener(new View.OnClickListener() {
-            int index = 0;
+            boolean subtitleEnabled = true;
 
             @Override
             public void onClick(View view) {
+                subtitleEnabled = !subtitleEnabled;
+                getCurPlay().setSubtitleEnabled(subtitleEnabled);
+                binding.change.setText(subtitleEnabled ? "GSY SUBTITLE OFF" : "GSY SUBTITLE ON");
+            }
+        });
 
-                ///TODO 注意，DEMO 的 getUrl 如果 M3U8 的话，内部可能会有内嵌字幕 embedded caption
-                ///TODO 所以就算你加了外挂字幕，也需要再切换一次才能看到外部字幕
-                if (binding.detailPlayer.getGSYVideoManager().getPlayer() instanceof GSYExoSubTitlePlayerManager) {
-                    IjkExo2MediaPlayer player = ((IjkExo2MediaPlayer) binding.detailPlayer.getGSYVideoManager().getPlayer().getMediaPlayer());
-                    TrackSelector trackSelector = player.getTrackSelector();
-                    MappingTrackSelector.MappedTrackInfo mappedTrackInfo = player.getTrackSelector().getCurrentMappedTrackInfo();
+        binding.subtitleSize.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                largeSubtitle = !largeSubtitle;
+                int size = largeSubtitle ? 22 : 16;
+                getCurPlay().setSubtitleStyle(createSubtitleStyle(size));
+                binding.subtitleSize.setText(largeSubtitle ? "SUBTITLE SIZE 16" : "SUBTITLE SIZE 22");
+            }
+        });
 
-                    if (mappedTrackInfo != null) {
-                        for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
-                            TrackGroupArray rendererTrackGroups = mappedTrackInfo.getTrackGroups(i);
-                            if (C.TRACK_TYPE_TEXT == mappedTrackInfo.getRendererType(i)) { //判断是否是音轨
-                                if (index == 0) {
-                                    index = 1;
-                                } else {
-                                    index = 0;
-                                }
-                                if (rendererTrackGroups.length <= 1) {
-                                    return;
-                                }
-                                TrackGroup trackGroup = rendererTrackGroups.get(index);
-                                TrackSelectionParameters parameters = trackSelector.getParameters().buildUpon().setForceHighestSupportedBitrate(true).setOverrideForType(new TrackSelectionOverride(trackGroup, 0)).build();
-                                trackSelector.setParameters(parameters);
-                            }
-                        }
-                    }
+        binding.subtitleSource.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (subtitleSources == null || subtitleSources.isEmpty()) {
+                    return;
+                }
+                subtitleSourceIndex = (subtitleSourceIndex + 1) % subtitleSources.size();
+                GSYSubtitleSource source = subtitleSources.get(subtitleSourceIndex);
+                if (getCurPlay().selectSubtitle(source.getId())) {
+                    binding.subtitleSource.setText("SUBTITLE " + source.getLabel());
                 }
             }
         });
 
-        binding.detailPlayer.setSubTitle("http://img.cdn.guoshuyu.cn/subtitle2.srt");
+        subtitleSources = createSubtitleSources();
+        binding.detailPlayer.setSubtitleSources(subtitleSources);
+        binding.detailPlayer.setSubtitleStyle(createSubtitleStyle(16));
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -412,5 +422,47 @@ public class GSYExoSubTitleDetailPlayer extends AppCompatActivity {
         ///TODO 注意，用这个 M3U8 的话，内部会有内嵌字幕 embedded caption
         ///TODO 所以就算你加了外挂字幕，也需要再切换一次才能看到外部字幕
         return "https://www.w3schools.com/html/mov_bbb.mp4";
+    }
+
+    private List<GSYSubtitleSource> createSubtitleSources() {
+        List<GSYSubtitleSource> sources = new ArrayList<>();
+        sources.add(new GSYSubtitleSource.Builder(getLocalSrtSubtitleUri())
+            .setId("local-srt")
+            .setLabel("SRT LOCAL")
+            .setLanguage("zh")
+            .setDefault(true)
+            .build());
+        sources.add(new GSYSubtitleSource.Builder(getLocalVttSubtitleUri())
+            .setId("local-vtt")
+            .setLabel("VTT LOCAL")
+            .setLanguage("en")
+            .build());
+        sources.add(new GSYSubtitleSource.Builder(getNetworkSrtSubtitleUrl())
+            .setId("network-srt")
+            .setLabel("SRT NETWORK")
+            .setLanguage("zh")
+            .build());
+        return sources;
+    }
+
+    private String getLocalSrtSubtitleUri() {
+        return "android.resource://" + getPackageName() + "/" + R.raw.demo_subtitle;
+    }
+
+    private String getLocalVttSubtitleUri() {
+        return "android.resource://" + getPackageName() + "/" + R.raw.demo_subtitle_vtt;
+    }
+
+    private String getNetworkSrtSubtitleUrl() {
+        return "http://img.cdn.guoshuyu.cn/subtitle2.srt";
+    }
+
+    private GSYSubtitleStyle createSubtitleStyle(int sizeSp) {
+        return new GSYSubtitleStyle.Builder()
+            .setTextColor(Color.WHITE)
+            .setTextSizeSp(sizeSp)
+            .setShadow(Color.BLACK, 3, 1, 1)
+            .setBottomMarginDp(56)
+            .build();
     }
 }

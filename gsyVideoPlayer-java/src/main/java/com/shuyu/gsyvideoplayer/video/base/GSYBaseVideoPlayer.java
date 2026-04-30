@@ -273,6 +273,7 @@ public abstract class GSYBaseVideoPlayer extends GSYVideoControlView {
         to.setLooping(from.isLooping());
         to.setIsTouchWigetFull(from.mIsTouchWigetFull);
         to.setSpeed(from.getSpeed(), from.mSoundTouch, false);
+        to.restoreSubtitleSnapshot(from.getSubtitleSnapshot());
         to.setStateAndUi(from.mCurrentState);
     }
 

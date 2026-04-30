@@ -83,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         binding.detailDownloadActivity.setOnClickListener(this);
         binding.detailAudioActivity.setOnClickListener(this);
         binding.detailSubtitleActivity.setOnClickListener(this);
+        binding.detailSubtitleCommonActivity.setOnClickListener(this);
         binding.changeCore.setOnClickListener(this);
         binding.viewPager2Activity.setOnClickListener(this);
         binding.viewPagerDemoActivity.setOnClickListener(this);
@@ -229,6 +230,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.detail_subtitle_activity:
                 JumpUtils.goToGSYExoSubTitleDetailPlayer(this);
+                break;
+            case R.id.detail_subtitle_common_activity:
+                JumpUtils.goToSubtitleDetailPlayer(this);
                 break;
             case R.id.detail_audio_activity:
                 JumpUtils.goToDetailAudioActivity(this);

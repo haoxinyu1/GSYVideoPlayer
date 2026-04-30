@@ -1,0 +1,12 @@
+WEBVTT
+
+NOTE Real WebVTT style sample for the subtitle demo.
+
+00:00:00.000 --> 00:00:08.000
+GSY WebVTT subtitle demo
+
+00:00:08.000 --> 00:00:20.000
+This cue comes from a local .vtt file.
+
+00:00:20.000 --> 00:01:00.000
+Switch back to SRT to compare parser behavior.

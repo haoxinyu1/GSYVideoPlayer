@@ -1,43 +1,19 @@
 package com.example.gsyvideoplayer.exosubtitle;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-
 import android.content.Context;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-
-
-import java.util.ArrayList;
-import java.util.List;
 
 import tv.danmaku.ijk.media.exo2.IjkExo2MediaPlayer;
 import tv.danmaku.ijk.media.exo2.demo.EventLogger;
 
-import androidx.media3.common.C;
-import androidx.media3.common.Format;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.Metadata;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
-import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.datasource.DefaultDataSource;
-import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.exoplayer.source.MergingMediaSource;
-import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
-import androidx.media3.extractor.Extractor;
-import androidx.media3.extractor.ExtractorsFactory;
-import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
-import androidx.media3.extractor.text.SubtitleExtractor;
-import androidx.media3.extractor.text.SubtitleParser;
 
 public class GSYExoSubTitlePlayer extends IjkExo2MediaPlayer {
 
@@ -114,10 +90,8 @@ public class GSYExoSubTitlePlayer extends IjkExo2MediaPlayer {
 //                            setSubtitleConfigurations(list).build();
 //                        mInternalPlayer.setMediaItem(mediaItem);
 
-                        if (mSubTitile != null) {
-                            MediaSource textMediaSource = getTextSource(Uri.parse(mSubTitile));
-                            mMediaSource = new MergingMediaSource(mMediaSource, textMediaSource);
-                        }
+                        // 外挂字幕由 GSY 通用字幕层异步加载和渲染。这里不再把字幕合并进
+                        // MediaSource，避免字幕下载/解析失败影响视频主播放。
                         mInternalPlayer.setMediaSource(mMediaSource);
 
 
@@ -129,48 +103,6 @@ public class GSYExoSubTitlePlayer extends IjkExo2MediaPlayer {
                 }
         );
     }
-
-    public MediaSource getTextSource(Uri subTitle) {
-        //todo C.SELECTION_FLAG_AUTOSELECT language MimeTypes
-        ///TODO 注意，如果原来视频有内嵌字幕，例如 M3U8 embedded caption
-        ///TODO 所以就算你加了外挂字幕，也需要再切换一次 track 才能看到外部字幕，具体看 GSYExoSubTitleDetailPlayer
-        Format format = new Format.Builder()
-            /// 其他的比如 text/x-ssa ，text/vtt，application/ttml+xml 等等
-            .setSampleMimeType(MimeTypes.APPLICATION_SUBRIP)
-            .setSelectionFlags(C.SELECTION_FLAG_FORCED)
-            /// 如果出现字幕不显示，可以通过修改这个语音去对应，
-            //  这个问题在内部的 selectTextTrack 时，TextTrackScore 通过 getFormatLanguageScore 方法判断语言获取匹配不上
-            //  就会不出现字幕
-            .setLanguage(null)
-            .build();
-
-        MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(subTitle)
-            .setMimeType(checkNotNull(format.sampleMimeType))
-            .setLanguage(format.language)
-            .setSelectionFlags(format.selectionFlags).build();
-
-        DefaultHttpDataSource.Factory factory = new DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(50000)
-            .setReadTimeoutMs(50000)
-            .setTransferListener(new DefaultBandwidthMeter.Builder(mAppContext).build());
-
-        SubtitleParser.Factory subtitleParserFactory = new DefaultSubtitleParserFactory();
-
-        ExtractorsFactory extractorsFactory =
-            () ->
-                new Extractor[]{
-                    new SubtitleExtractor(subtitleParserFactory.create(format), format)
-                };
-        ProgressiveMediaSource.Factory progressiveMediaSourceFactory =
-            new ProgressiveMediaSource.Factory(new DefaultDataSource.Factory(mAppContext,
-                factory), extractorsFactory);
-
-        return  progressiveMediaSourceFactory.createMediaSource(
-            MediaItem.fromUri(subtitle.uri.toString()));
-
-    }
-
 
     public String getSubTitile() {
         return mSubTitile;

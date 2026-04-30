@@ -37,6 +37,7 @@ import com.example.gsyvideoplayer.RecyclerView2Activity;
 import com.example.gsyvideoplayer.RecyclerView3Activity;
 import com.example.gsyvideoplayer.RecyclerViewActivity;
 import com.example.gsyvideoplayer.ScrollingActivity;
+import com.example.gsyvideoplayer.SubtitleDetailPlayer;
 import com.example.gsyvideoplayer.ViewPager2Activity;
 import com.example.gsyvideoplayer.ViewPagerDemoActivity;
 import com.example.gsyvideoplayer.WebDetailActivity;
@@ -308,6 +309,11 @@ public class JumpUtils {
      */
     public static void goToGSYExoSubTitleDetailPlayer(Activity activity) {
         Intent intent = new Intent(activity, GSYExoSubTitleDetailPlayer.class);
+        activity.startActivity(intent);
+    }
+
+    public static void goToSubtitleDetailPlayer(Activity activity) {
+        Intent intent = new Intent(activity, SubtitleDetailPlayer.class);
         activity.startActivity(intent);
     }
 
