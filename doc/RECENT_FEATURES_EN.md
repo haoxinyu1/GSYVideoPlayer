@@ -13,6 +13,38 @@ This document summarizes recent demo and playback changes so maintainers can qui
 | GLSurfaceView effects and lifecycle | `Filter` | `DetailFilterActivity`, `GSYVideoGLView*Render` | Cleans up GL renderer lifecycle and adds filter, texture, multi-window, mask, and blur scenes. |
 | Multi-URL quality switching | `Seamless switch` | `SmartPickVideo` | Keeps the two-manager approach and improves position sync, timeout, fallback, and temporary manager release. |
 | Exo adaptive quality | `EXO adaptive quality` | `ExoAdaptiveTrackActivity`, `GSYExo2MediaPlayer` | Uses one HLS master playlist or DASH MPD and lets Media3 TrackSelector switch video tracks in one media timeline. |
+| Graceful player init failure handling | Global capability | `GSYVideoBaseManager`, each `IPlayerManager` | Routes player creation/init failures through error callbacks and cleanup instead of crashing directly. |
+| Exo cache lifecycle and GIF cleanup | Global capability | `ExoSourceManager`, `GifCreateHelper` | Tightens Exo cache open/release behavior and cleans GIF generation state more reliably. |
+
+## Recent Commit Coverage
+
+Recent commits map to the docs like this:
+
+| Commit | Documentation coverage |
+| --- | --- |
+| `Add Exo adaptive quality demo and docs` | `README*`, `USE*`, `RECENT_FEATURES*`, `UPDATE_VERSION*`, `ARCHITECTURE.md`, `GSYVIDEO_PLAYER_PROJECT_INFO*` |
+| `Harden smart quality switching` | Multi-URL quality switching section, architecture layer table, regression checklist |
+| `Harden GL renderer lifecycle and demo` | GLSurfaceView effects section, architecture layer table, regression checklist |
+| `Fix screenshot callbacks and composed capture` | Screenshot section, composed screenshot APIs, architecture layer table |
+| `Add keep last frame demo` | Keep-last-frame section, entry table, regression checklist |
+| `feat: add unified subtitle support` | Unified subtitles section, `SUBTITLE_CN.md`, entry table, regression checklist |
+| `Add WebVTT seek preview support` | WebVTT seek preview section, entry table, regression checklist |
+| `Handle player init failures gracefully` | Graceful player init failure handling entry, changelog |
+| `Improve Exo cache lifecycle and GIF cleanup` | Exo cache lifecycle and GIF cleanup entry, changelog |
+
+## Documentation Coverage
+
+Recent playback feature notes are covered in:
+
+- `README_CN.md` / `README.md`: top-level feature summary and recent feature links.
+- `doc/USE.md` / `doc/USE_EN.md`: demo entry points and core APIs.
+- `doc/UPDATE_VERSION.md` / `doc/UPDATE_VERSION_EN.md`: Unreleased changelog summary.
+- `doc/ARCHITECTURE.md`: layer ownership across UI, Manager, Render, and Exo manager.
+- `doc/GSYVIDEO_PLAYER_PROJECT_INFO.md` / `doc/GSYVIDEO_PLAYER_PROJECT_INFO_EN.md`: recent feature mapping in the project structure guide.
+- `doc/SUBTITLE_CN.md`: unified subtitle guide.
+- `doc/RECENT_FEATURES.md` / `doc/RECENT_FEATURES_EN.md`: full recent feature overview, APIs, and regression checklist.
+
+Build, dependency, SO, publishing, decoder, and FAQ documents are not forced to repeat these playback feature notes because their scope is not demo entry points or playback architecture.
 
 ## WebVTT Seek Preview
 
@@ -129,6 +161,18 @@ Notes:
 - Fixed quality uses `TrackSelectionOverride` for a specific video track.
 - Clearing the override restores adaptive playback.
 
+## Graceful Player Init Failures
+
+Player initialization hardening is mainly in `GSYVideoBaseManager` and each core `IPlayerManager`. When IJK, System, Exo, or AliPlayer creation/init fails, the flow tries to report `onError` and release resources instead of throwing directly into the app.
+
+There is no standalone demo entry for this global safety behavior. Regression should cover invalid URLs, missing codec capability, or intentionally failed init paths and verify the app enters the error state without crashing.
+
+## Exo Cache Lifecycle And GIF Cleanup
+
+`ExoSourceManager` now handles Exo cache open/reuse/release more carefully to reduce stale resource risks. `GifCreateHelper` also cleans temporary state more reliably after GIF creation finishes, fails, or is cancelled.
+
+There is no standalone entry for this capability. Regression should cover Exo cache playback, leaving and re-entering a page, and GIF creation/failure paths in the filter demo.
+
 ## Regression Checklist
 
 Run at least:
@@ -146,3 +190,5 @@ Manual checks:
 - `Filter`: switch filters and GL scenes; playback, screenshots, and GIF creation should not crash.
 - `Seamless switch`: switch multiple URLs and confirm it does not jump back to 0.
 - `EXO adaptive quality`: HLS and DASH play, tracks are listed, and auto/fixed quality switching works.
+- Playback failure and init exceptions: confirm they route to error callbacks and do not crash the app.
+- Exo cache and GIF: confirm exit/re-enter/failure paths clean resources.

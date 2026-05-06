@@ -9,6 +9,7 @@
 * **Manager 内核管理层**：GSYVideoManager（GSYVideoBaseManager <- GSYVideoViewBridge）。
 * **Video  播放器控件层**：GSYTextureRenderVIew 到 GSYVideoPlayer 五层。
 * **Render 渲染控件层**：TextureView、SurfaceView、GLSurfaceView（GSYRenderView <- IGSYRenderView）。
+* **扩展能力层**：字幕、预览、截图、GL 效果、清晰度切换等能力优先挂在 UI/Manager/Render 这些可替换层，避免直接污染内核层。
 
 **目前整个video层即是传统controller层，也是大部分时候自定义实现需要继承的层**
 
@@ -31,6 +32,24 @@
 ```
 
 **从这里看出，项目的播放内核、管理器、渲染层都是可以自定义替换的。**
+
+### 近期能力对应的层级
+
+近期新增和调整的播放能力，可以按下面方式理解：
+
+| 能力 | 所在层级 | 说明 |
+| --- | --- | --- |
+| 通用外挂字幕 | Video/UI 层 | `GSYSubtitleController` 和 `GSYSubtitleView` 根据播放器进度渲染 SRT/WebVTT，加载失败不影响主视频。 |
+| WebVTT 进度条预览 | Demo + Preview Provider | `PreViewGSYVideoPlayer` 消费 `GSYVideoPreviewProvider`，缩略图和 sprite 坐标由业务侧或服务端提供。 |
+| 截图 | Render + Video 层 | Render 层负责取视频帧，`StandardGSYVideoPlayer` 新增组合截图 API，用于叠加播放器 UI。 |
+| GLSurfaceView 效果 | Render 层 | GL renderer 负责滤镜、纹理、截图和 release，Demo 退出时恢复原全局 render type。 |
+| 多 URL 清晰度切换 | Video + Manager 层 | `SmartPickVideo` 使用临时 manager 预加载新 URL，seek 同步后提交，失败时回退原播放。 |
+| Exo 自适应清晰度 | Exo Manager 层 | HLS master / DASH MPD 走单个媒体时间线，Media3 TrackSelector 自动选轨，固定清晰度使用 TrackSelectionOverride。 |
+| 完成后保留最后一帧 | Demo Video 层 | `KeepLastFrameVideo` 只作为业务语义验证，不改变基础播放器默认完成态。 |
+| 播放器初始化失败处理 | Manager + Player 层 | `GSYVideoBaseManager` 和各 `IPlayerManager` 将内核创建/初始化异常收敛到错误回调和资源清理。 |
+| Exo cache 与 GIF 清理 | Cache + Utils 层 | `ExoSourceManager` 管理 Exo cache 生命周期，`GifCreateHelper` 负责 GIF 生成状态和临时资源清理。 |
+
+更完整的入口、API、回归清单见 [RECENT_FEATURES.md](RECENT_FEATURES.md)。
 
 ### 自定义流程
 
@@ -66,8 +85,6 @@
 
 
 #### 6、还无法解决(｀・ω・´)，那就提个issue吧！
-
-
 
 
 

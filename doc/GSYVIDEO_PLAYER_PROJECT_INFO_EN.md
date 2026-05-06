@@ -9,6 +9,7 @@
 * **Manager core management layer**: GSYVideoManager (GSYVideoBaseManager <- GSYVideoViewBridge).
 * **Video player control layer**: GSYTextureRenderVIew to GSYVideoPlayer five layers.
 * **Render rendering control layer**: TextureView, SurfaceView, GLSurfaceView (GSYRenderView <- IGSYRenderView).
+* **Extension capability layer**: subtitles, preview, screenshots, GL effects, and quality switching are kept in replaceable UI/Manager/Render layers whenever possible, instead of being pushed into the playback core.
 
 **Currently, the entire video layer is the traditional controller layer, and it is also the layer that needs to be inherited for custom implementation most of the time.**
 
@@ -31,6 +32,24 @@
 ```
 
 **From this, it can be seen that the project's playback core, manager, and rendering layer can all be customized and replaced.**
+
+### Recent Features By Layer
+
+Recent playback changes map to the existing architecture like this:
+
+| Feature | Layer | Notes |
+| --- | --- | --- |
+| Unified external subtitles | Video/UI layer | `GSYSubtitleController` and `GSYSubtitleView` render SRT/WebVTT by playback position; failures do not affect video playback. |
+| WebVTT seek preview | Demo + preview provider | `PreViewGSYVideoPlayer` consumes `GSYVideoPreviewProvider`; thumbnail files and sprite coordinates come from the app or server side. |
+| Screenshots | Render + Video layer | Render views capture the video frame; `StandardGSYVideoPlayer` adds composed screenshot APIs that include player UI. |
+| GLSurfaceView effects | Render layer | GL renderers handle filters, textures, screenshots, and release; the demo restores the previous global render type on exit. |
+| Multi-URL quality switching | Video + Manager layer | `SmartPickVideo` preloads the target URL with a temporary manager, syncs seek position, commits when ready, and falls back on failure. |
+| Exo adaptive quality | Exo Manager layer | HLS master / DASH MPD use one media timeline; Media3 TrackSelector handles auto track selection, and fixed quality uses TrackSelectionOverride. |
+| Keep last frame | Demo Video layer | `KeepLastFrameVideo` validates the business behavior without changing the base player's default completion state. |
+| Player init failure handling | Manager + Player layer | `GSYVideoBaseManager` and each `IPlayerManager` route core creation/init exceptions into error callbacks and resource cleanup. |
+| Exo cache and GIF cleanup | Cache + Utils layer | `ExoSourceManager` manages the Exo cache lifecycle, while `GifCreateHelper` cleans GIF generation state and temporary resources. |
+
+See [RECENT_FEATURES_EN.md](RECENT_FEATURES_EN.md) for entry points, APIs, and regression checks.
 
 ### Customization Process
 

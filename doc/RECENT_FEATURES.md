@@ -13,6 +13,38 @@
 | GLSurfaceView 效果和生命周期 | `滤镜` | `DetailFilterActivity`、`GSYVideoGLView*Render` | 整理 GL render 生命周期，补充滤镜、纹理、多窗口、遮罩等 Demo 场景。 |
 | 多 URL 清晰度切换稳态优化 | `无缝切换` | `SmartPickVideo` | 保留双 manager 方案，强化切换过程中的位置同步、超时、失败回退和临时 manager 释放。 |
 | Exo 自适应清晰度 | `EXO自适应清晰度` | `ExoAdaptiveTrackActivity`、`GSYExo2MediaPlayer` | 使用单个 HLS master playlist 或 DASH MPD，由 Media3 TrackSelector 在同一时间线内自适应或固定 video track。 |
+| 播放器初始化失败安全处理 | 通用能力 | `GSYVideoBaseManager`、各 `IPlayerManager` | 内核创建或初始化失败时走错误回调和资源清理，避免直接 crash。 |
+| Exo 缓存生命周期和 GIF 清理 | 通用能力 | `ExoSourceManager`、`GifCreateHelper` | 收紧 Exo cache 的打开/释放流程，GIF 生成流程结束或失败时更可靠地清理。 |
+
+## 近期提交覆盖
+
+按近期提交逐条对应如下：
+
+| 提交 | 文档覆盖 |
+| --- | --- |
+| `Add Exo adaptive quality demo and docs` | `README*`、`USE*`、`RECENT_FEATURES*`、`UPDATE_VERSION*`、`ARCHITECTURE.md`、`GSYVIDEO_PLAYER_PROJECT_INFO*` |
+| `Harden smart quality switching` | 多 URL 清晰度切换章节、架构层级表、回归清单 |
+| `Harden GL renderer lifecycle and demo` | GLSurfaceView 效果章节、架构层级表、回归清单 |
+| `Fix screenshot callbacks and composed capture` | 截图能力章节、组合截图 API、架构层级表 |
+| `Add keep last frame demo` | 完成后保留最后一帧章节、入口总览、回归清单 |
+| `feat: add unified subtitle support` | 通用外挂字幕章节、`SUBTITLE_CN.md`、入口总览、回归清单 |
+| `Add WebVTT seek preview support` | WebVTT 进度条预览章节、入口总览、回归清单 |
+| `Handle player init failures gracefully` | 播放器初始化失败安全处理条目、版本说明 |
+| `Improve Exo cache lifecycle and GIF cleanup` | Exo 缓存生命周期和 GIF 清理条目、版本说明 |
+
+## 文档覆盖
+
+近期播放能力相关说明已经分散补充到以下文档：
+
+- `README_CN.md` / `README.md`：首页能力摘要和近期能力入口。
+- `doc/USE.md` / `doc/USE_EN.md`：使用层面的 Demo 入口和核心 API。
+- `doc/UPDATE_VERSION.md` / `doc/UPDATE_VERSION_EN.md`：Unreleased 版本变更摘要。
+- `doc/ARCHITECTURE.md`：播放能力在 UI、Manager、Render、Exo manager 等层级上的设计归属。
+- `doc/GSYVIDEO_PLAYER_PROJECT_INFO.md` / `doc/GSYVIDEO_PLAYER_PROJECT_INFO_EN.md`：项目结构说明里的近期能力层级映射。
+- `doc/SUBTITLE_CN.md`：通用字幕专题说明。
+- `doc/RECENT_FEATURES.md` / `doc/RECENT_FEATURES_EN.md`：近期能力总览、API 和回归清单。
+
+构建、依赖、SO、发布、解码器、FAQ 类文档没有强行加入本次播放能力说明，因为它们的主题不是 Demo 功能入口或播放架构。
 
 ## WebVTT 进度条预览
 
@@ -129,6 +161,18 @@ GSYExoVideoManager.instance().setVideoTrackOverride(groupIndex, trackIndex);
 - 选择固定清晰度时，会使用 `TrackSelectionOverride` 固定到某个 video track。
 - 清除 override 后恢复自适应。
 
+## 播放器初始化失败安全处理
+
+内核初始化相关改动集中在 `GSYVideoBaseManager` 和各内核 `IPlayerManager`。当 IJK、System、Exo、AliPlayer 创建或初始化失败时，流程会尽量走 `onError` 和释放清理，而不是把异常直接抛到业务层导致 crash。
+
+这个能力没有单独 Demo 入口，属于全局稳定性兜底。建议通过非法 URL、缺失解码能力或故意构造异常初始化场景回归，确认播放器进入错误态且应用不崩。
+
+## Exo 缓存生命周期和 GIF 清理
+
+`ExoSourceManager` 收紧了 Exo cache 的生命周期处理，降低 cache 打开、复用和释放过程中的资源残留风险。`GifCreateHelper` 在 GIF 生成结束、失败或取消后会更可靠地推进状态和清理临时资源。
+
+这个能力同样没有单独入口。回归时建议覆盖 Exo cache 播放、退出页面、重新进入播放，以及滤镜 Demo 里的 GIF 生成/失败路径。
+
 ## 回归建议
 
 每次修改这些能力后，至少执行：
@@ -146,3 +190,5 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - `滤镜`：切换滤镜和 GL 场景，确认播放、截图、GIF 不崩。
 - `无缝切换`：切换多个 URL，确认不回 0，失败可回退。
 - `EXO自适应清晰度`：HLS 和 DASH 都能播放，轨道列表能显示，自动/固定清晰度能切换。
+- 播放失败和内核初始化异常：确认进入错误回调，不直接 crash。
+- Exo cache 和 GIF：确认退出、重进、失败路径都能清理资源。

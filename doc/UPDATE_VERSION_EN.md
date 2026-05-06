@@ -12,6 +12,8 @@
 - GL demos include more effect scenes and safer renderer lifecycle, screenshot, and release behavior.
 - Multi-URL quality switching improves position sync, timeout handling, failure fallback, and temporary manager release to reduce jump-back-to-0 risk.
 - Add a keep-last-frame demo for validating cover and Surface retention behavior after natural completion.
+- Player core creation and initialization failures now route through error callbacks and cleanup to reduce direct crash risk.
+- Improve Exo cache lifecycle handling and cleanup after GIF creation finishes or fails.
 
 ### v12.1.0 (2026-04-01)
 

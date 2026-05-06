@@ -13,6 +13,8 @@
 | 多 URL 清晰度切换 | Demo player + manager | `SmartPickVideo` 使用临时 manager 预加载新 URL，同步位置后提交；异常时回退原播放。 |
 | Exo 自适应清晰度 | Exo manager | HLS master / DASH MPD 使用同一个媒体时间线，清晰度自动选择交给 Media3 TrackSelector；固定清晰度通过 TrackSelectionOverride 实现。 |
 | 完成后保留最后一帧 | Demo player | `KeepLastFrameVideo` 只作为 Demo 级验证，不改变基础播放器默认完成态和释放策略。 |
+| 播放器初始化失败处理 | Manager + Player | `GSYVideoBaseManager` 和各 `IPlayerManager` 将内核创建/初始化异常收敛到错误回调和资源清理。 |
+| Exo cache 与 GIF 清理 | Cache + Utils | `ExoSourceManager` 管理 Exo cache 生命周期，`GifCreateHelper` 负责 GIF 生成状态和临时资源清理。 |
 
 更多入口、API 和回归说明见 [RECENT_FEATURES.md](RECENT_FEATURES.md)。
 
