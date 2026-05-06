@@ -44,6 +44,7 @@ import com.example.gsyvideoplayer.ViewPagerDemoActivity;
 import com.example.gsyvideoplayer.WebDetailActivity;
 import com.example.gsyvideoplayer.WindowActivity;
 import com.example.gsyvideoplayer.exo.DetailExoListPlayer;
+import com.example.gsyvideoplayer.exo.ExoAdaptiveTrackActivity;
 import com.example.gsyvideoplayer.exosubtitle.GSYExoSubTitleDetailPlayer;
 import com.example.gsyvideoplayer.switchplay.SwitchListVideoActivity;
 
@@ -349,6 +350,11 @@ public class JumpUtils {
      */
     public static void goToDetailExoListPlayer(Activity activity) {
         Intent intent = new Intent(activity, DetailExoListPlayer.class);
+        activity.startActivity(intent);
+    }
+
+    public static void goToExoAdaptiveTrackActivity(Activity activity) {
+        Intent intent = new Intent(activity, ExoAdaptiveTrackActivity.class);
         activity.startActivity(intent);
     }
 

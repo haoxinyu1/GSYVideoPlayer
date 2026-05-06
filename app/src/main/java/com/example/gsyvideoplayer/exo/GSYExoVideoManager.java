@@ -15,6 +15,7 @@ import com.shuyu.gsyvideoplayer.utils.CommonUtil;
 import com.shuyu.gsyvideoplayer.video.base.GSYVideoPlayer;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -91,6 +92,24 @@ public class GSYExoVideoManager extends GSYVideoBaseManager {
             return;
         }
         ((GSYExoPlayerManager)playerManager).next();
+    }
+
+    public List<GSYExo2MediaPlayer.VideoTrackInfo> getVideoTrackInfoList() {
+        if (playerManager == null) {
+            return new ArrayList<>();
+        }
+        List<GSYExo2MediaPlayer.VideoTrackInfo> tracks =
+            ((GSYExoPlayerManager) playerManager).getVideoTrackInfoList();
+        return tracks == null ? new ArrayList<GSYExo2MediaPlayer.VideoTrackInfo>() : tracks;
+    }
+
+    public boolean clearVideoTrackOverride() {
+        return playerManager != null && ((GSYExoPlayerManager) playerManager).clearVideoTrackOverride();
+    }
+
+    public boolean setVideoTrackOverride(int groupIndex, int trackIndex) {
+        return playerManager != null
+            && ((GSYExoPlayerManager) playerManager).setVideoTrackOverride(groupIndex, trackIndex);
     }
 
     /**

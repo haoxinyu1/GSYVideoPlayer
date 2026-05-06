@@ -77,6 +77,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         binding.openBtnAd2.setOnClickListener(this);
         binding.openListAd.setOnClickListener(this);
         binding.openCustomExo.setOnClickListener(this);
+        binding.openExoAdaptive.setOnClickListener(this);
         binding.openSimple.setOnClickListener(this);
         binding.openSwitch.setOnClickListener(this);
         binding.mediaCodec.setOnClickListener(this);
@@ -216,6 +217,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.open_custom_exo:
                 //多个同时播放
                 JumpUtils.goToDetailExoListPlayer(this);
+                break;
+            case R.id.open_exo_adaptive:
+                JumpUtils.goToExoAdaptiveTrackActivity(this);
                 break;
             case R.id.open_switch:
                 JumpUtils.goToSwitch(this);

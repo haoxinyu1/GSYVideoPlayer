@@ -15,7 +15,7 @@
  **Cache**      | **Play while caching, using [AndroidVideoCache](https://github.com/danikula/AndroidVideoCache); Media3(ExoPlayer) uses SimpleCache.**
  **Protocols**      | **h263\4\5, Https, concat, rtsp, hls, rtmp, crypto, mpeg, etc. [ (ijk mode format support) ](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/DECODERS.md)**
  **Filters**      | **Simple filters (mosaic, black and white, color filter, Gaussian, blur, etc. more than 20 kinds), animation, (watermark, multi-screen playback, etc.).**
- **Frame images**      | **Video first frame, video frame screenshot function, video to gif function.**
+ **Frame images**      | **Video first frame, video frame screenshots, composed player screenshots including UI, and video to gif function.**
  **Playback**      | **List playback, continuous list playback, gravity rotation and manual rotation, video's own rotation attribute, fast and slow playback, network video loading speed.**
  **Screen**      | **Adjust display ratio: default, 16:9, 4:3, fill; rotate screen angle during playback (0,90,180,270); mirror rotation.**
  **Kernel**      | **IJKPlayer, Media3(EXOPlayer), MediaPlayer, AliPlayer switching, custom kernel**
@@ -23,14 +23,14 @@
  **Playback**      | **Singleton playback, multiple simultaneous playback, video list sliding automatic playback, seamless playback of list switching detail pages.**
  **Window**      | **Small window, small window playback in multiple windows (including desktop).**
  **Ads**      | **Opening ads, skip ad support, interstitial ad function.**
- **Subtitles**      | **[Media3(exo2) mode supports custom external subtitles](https://github.com/CarGuo/GSYVideoPlayer/tree/master/app/src/main/java/com/example/gsyvideoplayer/exosubtitle).**
- **Dash**    | **Media3(exo2) mode supports dash**
+ **Subtitles**      | **Unified external subtitle overlay supports SRT/WebVTT across IJK, Media3(EXOPlayer), and MediaPlayer; Media3 embedded cues can bridge to the same UI.**
+ **Dash**    | **Media3(exo2) mode supports dash; the demo supports HLS master / DASH MPD adaptive quality track switching.**
  **Stream**  | **Supports metadata playback**
  **Adapt 16k**  | **ex_so adapts to 16K Page Size**
  **openssl** | **Currently ex_so's arm64/x86_64  uses openssl 1.1.1w**
  **FFmpeg**  | **Currently ex_so's arm64/x86_64 uses FFmpeg 4.3**
  **FFmpeg**  | **Currently ex_so's arm64/x86_64  supports G711a(pcm_alaw)**
- **More**      | **No black screen when pausing front and back switching; support for adjusting different definitions; seamless switching support; lock/unlock full screen click function; progress bar small window preview (test).**
+ **More**      | **No black screen when pausing front and back switching; multi-URL quality switching; Exo HLS/DASH adaptive quality; seamless switching support; keep-last-frame demo; WebVTT progress bar preview.**
  **Customization**     | **Customizable rendering layer, custom management layer, custom playback layer (control layer), custom cache layer.**
 
 [![Maven Central Version](https://img.shields.io/maven-central/v/io.github.carguo/gsyvideoplayer)](https://central.sonatype.com/artifact/io.github.carguo/gsyvideoplayer)
@@ -66,6 +66,8 @@ There are currently three hosting methods:
 
 
 #### [--- Version Update Instructions --- ](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/UPDATE_VERSION.md).
+
+#### [--- Recent Playback Features --- ](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/RECENT_FEATURES_EN.md).
 
 ### 1. MavenCentral Reference (Recommended)
 

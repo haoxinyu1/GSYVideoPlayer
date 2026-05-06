@@ -209,6 +209,21 @@ public class GSYExoPlayerManager extends BasePlayerManager {
         mediaPlayer.next();
     }
 
+    public List<GSYExo2MediaPlayer.VideoTrackInfo> getVideoTrackInfoList() {
+        if (mediaPlayer == null) {
+            return null;
+        }
+        return mediaPlayer.getVideoTrackInfoList();
+    }
+
+    public boolean clearVideoTrackOverride() {
+        return mediaPlayer != null && mediaPlayer.clearVideoTrackOverride();
+    }
+
+    public boolean setVideoTrackOverride(int groupIndex, int trackIndex) {
+        return mediaPlayer != null && mediaPlayer.setVideoTrackOverride(groupIndex, trackIndex);
+    }
+
     @Override
     public long getNetSpeed() {
         return 0;

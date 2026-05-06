@@ -531,6 +531,34 @@ GSYVideoType.setRenderType(GSYVideoType.GLSURFACE);
 
 ```
 
+### 近期新增能力
+
+近期新增和调整的播放能力可以先看 [RECENT_FEATURES.md](RECENT_FEATURES.md)，里面按 Demo 入口、主要类和回归方式做了集中说明。
+
+常用入口：
+
+- `打开VIDEO`：WebVTT 进度条预览，使用 `PreViewGSYVideoPlayer#setPreviewVttUrl(String)`。
+- `自定义EXO支持字幕`、`通用字幕非EXO`：通用外挂字幕，支持 SRT/WebVTT 和多内核复用。
+- `完成保留最后一帧`：完成后保留最后一帧 Demo，通过 `KeepLastFrameVideo#setKeepLastFrameWhenComplete(boolean)` 控制。
+- `滤镜`：GLSurfaceView 滤镜和多种 GL 效果场景。
+- `无缝切换`：多 URL 清晰度切换 Demo，适合多个独立 URL 的切换。
+- `EXO自适应清晰度`：HLS master / DASH MPD 自适应清晰度 Demo，适合服务端提供标准多码率流的场景。
+
+Exo 自适应清晰度相关 API：
+
+```java
+GSYExoVideoManager.instance().getVideoTrackInfoList();
+GSYExoVideoManager.instance().clearVideoTrackOverride();
+GSYExoVideoManager.instance().setVideoTrackOverride(groupIndex, trackIndex);
+```
+
+播放器 UI 组合截图 API：
+
+```java
+player.taskShotPicWithView(listener);
+player.saveFrameWithView(file, listener);
+```
+
 ### 高级自定义
 
 [--- 项目解析说明、包含项目架构和解析](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/GSYVIDEO_PLAYER_PROJECT_INFO.md)***

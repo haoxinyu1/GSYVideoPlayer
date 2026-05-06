@@ -2,6 +2,17 @@
 
 **[Click to see the English version](UPDATE_VERSION_EN.md)**
 
+### Unreleased
+
+- 新增 Exo HLS master / DASH MPD 自适应清晰度 Demo，支持查看 video track 列表、恢复 TrackSelector 自动选择、固定某个清晰度 track。
+- 新增近期播放能力说明文档，汇总 WebVTT 进度条预览、通用字幕、完成保留最后一帧、截图、GL 效果、多 URL 清晰度切换和 Exo 自适应清晰度 Demo。
+- 通用外挂字幕支持 SRT/WebVTT，可跨 IJK、System、Media3 内核使用；字幕异常不影响主播放。
+- 进度条预览改为 WebVTT 缩略图轨道方案，支持独立图片和 sprite 坐标裁剪。
+- 截图能力补齐 SurfaceView、TextureView、GLSurfaceView 回调，并新增包含播放器 UI 的组合截图 API。
+- GL 渲染 Demo 增加多种效果场景，强化 GL renderer 生命周期、截图和释放安全性。
+- 多 URL 清晰度切换优化位置同步、超时、失败回退和临时 manager 释放，降低切换回 0 的风险。
+- 新增完成后保留最后一帧 Demo，方便验证自然播放完成后的封面和 Surface 保留策略。
+
 ### v12.1.0 (2026-04-01)
 
 - update media3 1.10.0
@@ -1587,5 +1598,4 @@ holder.gsyVideoPlayer.setPlayPosition(position);
 ### 1.1.1
 * 增加了ListVideoUtil全屏是否显示横屏，全屏是否自动旋转。
 * 增加了ListVideoUtils隐藏状态栏和title的接口。
-
 

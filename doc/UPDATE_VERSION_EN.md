@@ -2,6 +2,17 @@
 
 **[Click to see the Chinese version](UPDATE_VERSION.md)**
 
+### Unreleased
+
+- Add an Exo HLS master / DASH MPD adaptive quality demo with video track listing, TrackSelector auto mode, and fixed video track override.
+- Add a recent playback features guide covering WebVTT seek preview, unified subtitles, keep-last-frame demo, screenshots, GL effects, multi-URL quality switching, and Exo adaptive quality.
+- Unified external subtitles support SRT/WebVTT across IJK, System, and Media3; subtitle failures do not interrupt video playback.
+- Seek preview now uses WebVTT thumbnail tracks and supports standalone images and sprite crop coordinates.
+- Screenshot handling now reports SurfaceView, TextureView, and GLSurfaceView failure paths and adds composed player screenshot APIs including UI.
+- GL demos include more effect scenes and safer renderer lifecycle, screenshot, and release behavior.
+- Multi-URL quality switching improves position sync, timeout handling, failure fallback, and temporary manager release to reduce jump-back-to-0 risk.
+- Add a keep-last-frame demo for validating cover and Surface retention behavior after natural completion.
+
 ### v12.1.0 (2026-04-01)
 
 - update media3 1.10.0

@@ -16,7 +16,7 @@
  **缓存**      | **边播边缓存，使用了[AndroidVideoCache](https://github.com/danikula/AndroidVideoCache)；Media3(ExoPlayer)使用SimpleCache。**
  **协议**      | **h263\4\5、Https、concat、rtsp、hls、rtmp、crypto、mpeg等等。[（ijk模式格式支持）](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/DECODERS.md)**
  **滤镜**      | **简单滤镜（马赛克、黑白、色彩过滤、高斯、模糊、模糊等等20多种）、动画、（水印、画面多重播放等）。**
- **帧图**      | **视频第一帧、视频帧截图功能，视频生成gif功能。**
+ **帧图**      | **视频第一帧、视频帧截图功能、播放器 UI 组合截图功能，视频生成gif功能。**
  **播放**      | **列表播放、列表连续播放、重力旋转与手动旋转、视频本身rotation旋转属性、快播和慢播、网络视频加载速度。**
  **画面**      | **调整显示比例:默认、16:9、4:3、填充；播放时旋转画面角度（0,90,180,270）；镜像旋转。**
  **内核**      | **IJKPlayer、Media3(EXOPlayer)、MediaPlayer、AliPlayer切换、自定义内核**
@@ -25,13 +25,13 @@
  **窗口**      | **小窗口、多窗体下（包括桌面）的小窗口播放。**
  **广告**      | **片头广告、跳过广告支持、中间插入广告功能。**
  **字幕**      | **支持通用外挂字幕 Overlay，SRT/WebVTT 可跨 IJK、Media3(EXOPlayer)、MediaPlayer 等内核使用；Media3 内嵌字幕可桥接到同一套 UI。[说明](doc/SUBTITLE_CN.md)。**
- **dash**    | **media3(exo2) 模式支持dash**
+ **dash**    | **media3(exo2) 模式支持dash；Demo 支持 HLS master / DASH MPD 自适应清晰度轨道切换。**
  **stream**  | **支持元数据播放**
  **适配 16k**  | **ex_so 适配 16K Page Size**
  **openssl** | **目前  ex_so 的 arm64/x86_64 使用 openssl 1.1.1w**
  **FFmpeg**  | **目前  ex_so 的 arm64/x86_64 使用 FFmpeg 4.3**
  **FFmpeg**  | **目前  ex_so 的 arm64/x86_64 支持 G711a(pcm_alaw)**
- **更多**      | **暂停前后台切换不黑屏；调整不同清晰度的支持；无缝切换支持；锁定/解锁全屏点击功能；进度条小窗口预览（测试）。**
+ **更多**      | **暂停前后台切换不黑屏；多 URL 清晰度切换；Exo HLS/DASH 自适应清晰度；无缝切换支持；完成后保留最后一帧 Demo；进度条 WebVTT 小窗口预览。**
  **自定义**     | **可自定义渲染层、自定义管理层、自定义播放层（控制层）、自定义缓存层。**
 
 [![Maven Central Version](https://img.shields.io/maven-central/v/io.github.carguo/gsyvideoplayer)](https://central.sonatype.com/artifact/io.github.carguo/gsyvideoplayer)
@@ -67,6 +67,8 @@
 
 
 #### [--- 版本更新说明 --- ](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/UPDATE_VERSION.md)。
+
+#### [--- 近期播放能力说明 --- ](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/RECENT_FEATURES.md)。
 
 ### 1、mavenCentral 引用(推荐)
 

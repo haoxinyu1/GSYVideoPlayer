@@ -6,7 +6,11 @@ import android.os.Handler;
 import android.os.Looper;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -18,6 +22,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 
 
 import java.io.FileDescriptor;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +43,49 @@ public class GSYExo2MediaPlayer extends IjkExo2MediaPlayer {
     public static final int POSITION_DISCONTINUITY = 899;
 
     private int playIndex = 0;
+
+    public static class VideoTrackInfo {
+        public final int groupIndex;
+        public final int trackIndex;
+        public final int width;
+        public final int height;
+        public final int bitrate;
+        public final String codecs;
+        public final boolean selected;
+        public final boolean supported;
+        public final boolean adaptiveSupported;
+
+        VideoTrackInfo(int groupIndex, int trackIndex, Format format, boolean selected,
+                       boolean supported, boolean adaptiveSupported) {
+            this.groupIndex = groupIndex;
+            this.trackIndex = trackIndex;
+            this.width = format.width;
+            this.height = format.height;
+            this.bitrate = format.bitrate;
+            this.codecs = format.codecs;
+            this.selected = selected;
+            this.supported = supported;
+            this.adaptiveSupported = adaptiveSupported;
+        }
+
+        public String getLabel() {
+            StringBuilder builder = new StringBuilder();
+            if (height > 0) {
+                builder.append(height).append("P");
+            } else if (width > 0) {
+                builder.append(width).append("W");
+            } else {
+                builder.append("Unknown");
+            }
+            if (bitrate > 0) {
+                builder.append("  ").append(Math.round(bitrate / 1000f)).append("kbps");
+            }
+            if (selected) {
+                builder.append("  *");
+            }
+            return builder.toString();
+        }
+    }
 
     public GSYExo2MediaPlayer(Context context) {
         super(context);
@@ -196,5 +244,71 @@ public class GSYExo2MediaPlayer extends IjkExo2MediaPlayer {
             return 0;
         }
         return mInternalPlayer.getCurrentMediaItemIndex();
+    }
+
+    public List<VideoTrackInfo> getVideoTrackInfoList() {
+        List<VideoTrackInfo> result = new ArrayList<>();
+        Tracks tracks = getCurrentTracks();
+        if (tracks == null) {
+            return result;
+        }
+        List<Tracks.Group> groups = tracks.getGroups();
+        for (int groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
+            Tracks.Group group = groups.get(groupIndex);
+            if (group.getType() != C.TRACK_TYPE_VIDEO) {
+                continue;
+            }
+            for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+                result.add(new VideoTrackInfo(
+                    groupIndex,
+                    trackIndex,
+                    group.getTrackFormat(trackIndex),
+                    group.isTrackSelected(trackIndex),
+                    group.isTrackSupported(trackIndex),
+                    group.isAdaptiveSupported()));
+            }
+        }
+        return result;
+    }
+
+    public boolean clearVideoTrackOverride() {
+        if (mInternalPlayer == null) {
+            return false;
+        }
+        TrackSelectionParameters parameters = mInternalPlayer.getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+            .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            .setForceLowestBitrate(false)
+            .setForceHighestSupportedBitrate(false)
+            .build();
+        mInternalPlayer.setTrackSelectionParameters(parameters);
+        return true;
+    }
+
+    public boolean setVideoTrackOverride(int groupIndex, int trackIndex) {
+        if (mInternalPlayer == null) {
+            return false;
+        }
+        Tracks tracks = getCurrentTracks();
+        if (tracks == null || groupIndex < 0 || groupIndex >= tracks.getGroups().size()) {
+            return false;
+        }
+        Tracks.Group group = tracks.getGroups().get(groupIndex);
+        if (group.getType() != C.TRACK_TYPE_VIDEO
+            || trackIndex < 0
+            || trackIndex >= group.length
+            || !group.isTrackSupported(trackIndex)) {
+            return false;
+        }
+        TrackSelectionOverride override =
+            new TrackSelectionOverride(group.getMediaTrackGroup(), trackIndex);
+        TrackSelectionParameters parameters = mInternalPlayer.getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+            .setOverrideForType(override)
+            .build();
+        mInternalPlayer.setTrackSelectionParameters(parameters);
+        return true;
     }
 }

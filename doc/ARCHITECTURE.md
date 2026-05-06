@@ -1,4 +1,22 @@
-# 双渠道发布架构说明
+# 架构说明
+
+## 近期播放能力补充
+
+近期播放相关修改主要遵循两个原则：播放内核只负责媒体解码和时间线，跨内核能力尽量放在播放器 UI 或 GSY 管理层；Demo 级能力保持入口清晰，避免改变全局默认行为。
+
+| 能力 | 所在层级 | 设计说明 |
+| --- | --- | --- |
+| 通用外挂字幕 | UI overlay | `GSYSubtitleController` 根据播放器进度驱动 `GSYSubtitleView`，SRT/WebVTT 加载失败只影响字幕显示，不影响内核 prepare/play。 |
+| WebVTT 预览 | Demo + preview provider | `PreViewGSYVideoPlayer` 只消费 `GSYVideoPreviewProvider`，缩略图生成和 sprite 坐标由服务端或业务侧提供。 |
+| 截图 | Render + Standard player | `taskShotPic/saveFrame` 保持视频帧语义，`taskShotPicWithView/saveFrameWithView` 表达包含播放器 UI 的组合截图语义。 |
+| GLSurfaceView 效果 | Render | GL renderer 负责纹理、滤镜、截图和 release；Demo 进入时切 GL 渲染，退出恢复原 render type。 |
+| 多 URL 清晰度切换 | Demo player + manager | `SmartPickVideo` 使用临时 manager 预加载新 URL，同步位置后提交；异常时回退原播放。 |
+| Exo 自适应清晰度 | Exo manager | HLS master / DASH MPD 使用同一个媒体时间线，清晰度自动选择交给 Media3 TrackSelector；固定清晰度通过 TrackSelectionOverride 实现。 |
+| 完成后保留最后一帧 | Demo player | `KeepLastFrameVideo` 只作为 Demo 级验证，不改变基础播放器默认完成态和释放策略。 |
+
+更多入口、API 和回归说明见 [RECENT_FEATURES.md](RECENT_FEATURES.md)。
+
+## 双渠道发布架构说明
 
 ## 📊 发布流程对比
 

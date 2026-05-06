@@ -496,6 +496,34 @@ GSYVideoType.setRenderType(GSYVideoType.SUFRACE);
 GSYVideoType.setRenderType(GSYVideoType.GLSURFACE);
 ```
 
+### Recent Features
+
+For recently added playback features, see [RECENT_FEATURES_EN.md](RECENT_FEATURES_EN.md). It lists demo entries, main classes, and regression scope.
+
+Common entry points:
+
+- `Open VIDEO`: WebVTT seek preview via `PreViewGSYVideoPlayer#setPreviewVttUrl(String)`.
+- `Custom EXO subtitles`, `Common subtitles non-EXO`: unified external SRT/WebVTT subtitles across player cores.
+- `Keep last frame`: keep-last-frame demo controlled by `KeepLastFrameVideo#setKeepLastFrameWhenComplete(boolean)`.
+- `Filter`: GLSurfaceView filters and GL effect scenes.
+- `Seamless switch`: multi-URL quality switching for separate URLs.
+- `EXO adaptive quality`: HLS master / DASH MPD adaptive quality demo for standard multi-bitrate streams.
+
+Exo adaptive quality APIs:
+
+```java
+GSYExoVideoManager.instance().getVideoTrackInfoList();
+GSYExoVideoManager.instance().clearVideoTrackOverride();
+GSYExoVideoManager.instance().setVideoTrackOverride(groupIndex, trackIndex);
+```
+
+Composed player screenshot APIs:
+
+```java
+player.taskShotPicWithView(listener);
+player.saveFrameWithView(file, listener);
+```
+
 ### Advanced Customization
 
 [--- Project Analysis, including project architecture and analysis](https://github.com/CarGuo/GSYVideoPlayer/blob/master/doc/GSYVIDEO_PLAYER_PROJECT_INFO.md)***
