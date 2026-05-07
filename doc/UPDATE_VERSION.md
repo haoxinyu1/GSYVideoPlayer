@@ -4,6 +4,8 @@
 
 ### Unreleased
 
+### v13.0.0 (2026-05-07)
+
 - 新增 Exo HLS master / DASH MPD 自适应清晰度 Demo，支持查看 video track 列表、恢复 TrackSelector 自动选择、固定某个清晰度 track。
 - 新增近期播放能力说明文档，汇总 WebVTT 进度条预览、通用字幕、完成保留最后一帧、截图、GL 效果、多 URL 清晰度切换和 Exo 自适应清晰度 Demo。
 - 通用外挂字幕支持 SRT/WebVTT，可跨 IJK、System、Media3 内核使用；字幕异常不影响主播放。
@@ -14,6 +16,10 @@
 - 新增完成后保留最后一帧 Demo 和专题文档，方便验证自然播放完成后的封面和 Surface 保留策略。
 - 播放器内核创建和初始化失败时走错误回调与资源清理，降低直接 crash 风险。
 - 优化 Exo cache 生命周期处理和 GIF 生成结束/失败后的清理流程。
+- 修复字幕 detach/全屏/小窗切换时 loader 释放和恢复逻辑，避免线程泄漏、字幕状态丢失和加载中断后不恢复。
+- Exo cache 目录被锁时播放回退到非缓存路径，并避免 hadCached 状态误报。
+- 修复 SurfaceView 截图失败时 bitmap 未释放的问题。
+- 修复预览 VTT 旧异步任务覆盖已清空或已替换 provider 的问题。
 
 ### v12.1.0 (2026-04-01)
 

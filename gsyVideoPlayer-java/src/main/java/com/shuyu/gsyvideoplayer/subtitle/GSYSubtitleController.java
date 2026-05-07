@@ -13,7 +13,7 @@ public class GSYSubtitleController {
 
     private final Context context;
     private final GSYSubtitleView subtitleView;
-    private final GSYSubtitleLoader loader = new GSYSubtitleLoader();
+    private GSYSubtitleLoader loader = new GSYSubtitleLoader();
     private final List<GSYSubtitleSource> sources = new ArrayList<>();
 
     private GSYSubtitleStyle style = GSYSubtitleStyle.defaultStyle();
@@ -21,6 +21,7 @@ public class GSYSubtitleController {
     private GSYSubtitleProvider provider;
     private boolean loadingExternalSubtitle;
     private boolean enabled = true;
+    private boolean reloadAfterLoaderRelease;
     private long offsetMs;
     private int loadVersion;
     private String embeddedText = "";
@@ -167,13 +168,34 @@ public class GSYSubtitleController {
     public void cancelLoad() {
         loadVersion++;
         loadingExternalSubtitle = false;
-        loader.cancelCurrent();
+        reloadAfterLoaderRelease = false;
+        if (loader != null) {
+            loader.cancelCurrent();
+        }
     }
 
     public void release() {
         cancelLoad();
         clear();
-        loader.release();
+        releaseLoader();
+    }
+
+    public void releaseLoader() {
+        if (loader != null) {
+            reloadAfterLoaderRelease = loadingExternalSubtitle && selectedSource != null && provider == null;
+            loadVersion++;
+            loadingExternalSubtitle = false;
+            loader.release();
+            loader = null;
+        }
+    }
+
+    public void resumeReleasedLoader() {
+        if (reloadAfterLoaderRelease && selectedSource != null && provider == null) {
+            GSYSubtitleSource source = selectedSource;
+            reloadAfterLoaderRelease = false;
+            loadSource(source);
+        }
     }
 
     public GSYSubtitleSnapshot snapshot() {
@@ -219,8 +241,9 @@ public class GSYSubtitleController {
         selectedSource = source;
         provider = null;
         loadingExternalSubtitle = true;
+        reloadAfterLoaderRelease = false;
         clear();
-        loader.load(context, source, new GSYSubtitleLoader.Callback() {
+        ensureLoader().load(context, source, new GSYSubtitleLoader.Callback() {
             @Override
             public void onLoaded(GSYSubtitleSource loadedSource, GSYSubtitleProvider loadedProvider) {
                 if (version != loadVersion || selectedSource != source) {
@@ -246,6 +269,13 @@ public class GSYSubtitleController {
                 showEmbeddedTextOrClear();
             }
         });
+    }
+
+    private GSYSubtitleLoader ensureLoader() {
+        if (loader == null) {
+            loader = new GSYSubtitleLoader();
+        }
+        return loader;
     }
 
     public static class GSYSubtitleSnapshot {

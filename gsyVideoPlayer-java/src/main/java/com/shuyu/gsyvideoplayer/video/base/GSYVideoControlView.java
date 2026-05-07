@@ -299,21 +299,41 @@ public abstract class GSYVideoControlView extends GSYVideoView implements View.O
         Debuger.printfLog(GSYVideoControlView.this.hashCode() + "------------------------------ dismiss onDetachedFromWindow");
         cancelProgressTimer();
         cancelDismissControlViewTimer();
-        if (mSubtitleController != null) {
-            mSubtitleController.cancelLoad();
-            mSubtitleController.clear();
-        }
+        releaseSubtitleLoader();
 
         // 释放音频焦点管理器资源
         releaseAudioFocusManager();
     }
 
     @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        resumeReleasedSubtitleLoader();
+    }
+
+    @Override
     public void release() {
         super.release();
+        releaseSubtitleController();
+    }
+
+    protected void releaseSubtitleController() {
         if (mSubtitleController != null) {
             mSubtitleController.release();
             mSubtitleController = null;
+        }
+    }
+
+    protected void releaseSubtitleLoader() {
+        if (mSubtitleController != null) {
+            mSubtitleController.clear();
+            mSubtitleController.releaseLoader();
+        }
+    }
+
+    protected void resumeReleasedSubtitleLoader() {
+        if (mSubtitleController != null) {
+            mSubtitleController.resumeReleasedLoader();
         }
     }
 

@@ -189,10 +189,11 @@ public class PreViewGSYVideoPlayer extends NormalGSYVideoPlayer {
     public void setPreviewVttUrl(String previewVttUrl) {
         mPreviewVttUrl = previewVttUrl;
         mPreviewProvider = null;
+        final int loadId = ++mPreviewLoadId;
         if (previewVttUrl == null || previewVttUrl.length() == 0) {
             return;
         }
-        loadPreviewVtt(previewVttUrl);
+        loadPreviewVtt(previewVttUrl, loadId);
     }
 
     public GSYVideoPreviewProvider getPreviewProvider() {
@@ -200,6 +201,7 @@ public class PreViewGSYVideoPlayer extends NormalGSYVideoPlayer {
     }
 
     public void setPreviewProvider(GSYVideoPreviewProvider previewProvider) {
+        mPreviewLoadId++;
         mPreviewProvider = previewProvider;
     }
 
@@ -242,7 +244,10 @@ public class PreViewGSYVideoPlayer extends NormalGSYVideoPlayer {
     }
 
     private void loadPreviewVtt(final String previewVttUrl) {
-        final int loadId = ++mPreviewLoadId;
+        loadPreviewVtt(previewVttUrl, ++mPreviewLoadId);
+    }
+
+    private void loadPreviewVtt(final String previewVttUrl, final int loadId) {
         PREVIEW_EXECUTOR.execute(new Runnable() {
             @Override
             public void run() {
@@ -252,7 +257,7 @@ public class PreViewGSYVideoPlayer extends NormalGSYVideoPlayer {
                     mMainHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (loadId == mPreviewLoadId) {
+                            if (loadId == mPreviewLoadId && previewVttUrl.equals(mPreviewVttUrl)) {
                                 mPreviewProvider = provider;
                                 Debuger.printfLog("Preview VTT loaded, frame count: " + provider.getFrames().size());
                             }
@@ -262,7 +267,7 @@ public class PreViewGSYVideoPlayer extends NormalGSYVideoPlayer {
                     mMainHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (loadId == mPreviewLoadId) {
+                            if (loadId == mPreviewLoadId && previewVttUrl.equals(mPreviewVttUrl)) {
                                 mPreviewProvider = null;
                                 Debuger.printfError("Preview VTT load failed: " + e.getMessage());
                             }

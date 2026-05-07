@@ -4,6 +4,7 @@ package tv.danmaku.ijk.media.exo2;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.Uri;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -103,6 +104,7 @@ public class ExoSourceManager {
      * @param cacheDir    自定义缓存目录
      */
     public MediaSource getMediaSource(String dataSource, boolean preview, boolean cacheEnable, boolean isLooping, File cacheDir, @Nullable String overrideExtension) {
+        isCached = false;
         MediaSource mediaSource = null;
         if (sExoMediaSourceInterceptListener != null) {
             mediaSource = sExoMediaSourceInterceptListener.getMediaSource(dataSource, preview, cacheEnable, isLooping, cacheDir);
@@ -225,7 +227,7 @@ public class ExoSourceManager {
      * 本地缓存目录
      */
     public static synchronized Cache getCacheSingleInstance(Context context, File cacheDir) {
-        return getOrCreateCacheHolder(context, cacheDir, false).cache;
+        return getOrCreateCacheHolder(context, cacheDir, false, false).cache;
     }
 
     public void release() {
@@ -242,7 +244,10 @@ public class ExoSourceManager {
     public static void clearCache(Context context, File cacheDir, String url) {
         CacheHolder cacheHolder = null;
         try {
-            cacheHolder = getOrCreateCacheHolder(context, cacheDir, false);
+            cacheHolder = getOrCreateCacheHolder(context, cacheDir, false, true);
+            if (cacheHolder == null) {
+                return;
+            }
             Cache cache = cacheHolder.cache;
             if (!TextUtils.isEmpty(url)) {
                 if (cache != null) {
@@ -283,7 +288,8 @@ public class ExoSourceManager {
     }
 
     public static boolean cachePreView(Context context, File cacheDir, String url) {
-        return resolveCacheState(getCacheSingleInstance(context, cacheDir), url);
+        CacheHolder cacheHolder = getOrCreateCacheHolder(context, cacheDir, false, true);
+        return cacheHolder != null && resolveCacheState(cacheHolder.cache, url);
     }
 
     public boolean hadCached() {
@@ -356,8 +362,8 @@ public class ExoSourceManager {
     private DataSource.Factory getDataSourceFactoryCache(Context context, boolean cacheEnable, boolean preview, File cacheDir, String uerAgent) {
         if (cacheEnable) {
             CacheHolder cacheHolder = acquireCacheHolder(context, cacheDir);
-            Cache cache = cacheHolder.cache;
-            if (cache != null) {
+            if (cacheHolder != null && cacheHolder.cache != null) {
+                Cache cache = cacheHolder.cache;
                 DataSink.Factory cacheSinkFactory = null;
                 if (sExoMediaSourceInterceptListener != null) {
                     cacheSinkFactory = sExoMediaSourceInterceptListener.cacheWriteDataSinkFactory(cacheHolder.cachePath, mDataSource);
@@ -380,24 +386,31 @@ public class ExoSourceManager {
     private synchronized CacheHolder acquireCacheHolder(Context context, File cacheDir) {
         String cachePath = buildCachePath(context, cacheDir);
         if (!TextUtils.isEmpty(mCurrentCachePath) && mCurrentCachePath.equals(cachePath)) {
-            return getOrCreateCacheHolder(context, cacheDir, false);
+            return getOrCreateCacheHolder(context, cacheDir, false, true);
         }
         if (!TextUtils.isEmpty(mCurrentCachePath) && !mCurrentCachePath.equals(cachePath)) {
             releaseCacheHolder(mCurrentCachePath);
             mCurrentCachePath = null;
         }
-        CacheHolder cacheHolder = getOrCreateCacheHolder(context, cacheDir, true);
+        CacheHolder cacheHolder = getOrCreateCacheHolder(context, cacheDir, true, true);
+        if (cacheHolder == null) {
+            return null;
+        }
         mCurrentCachePath = cacheHolder.cachePath;
         return cacheHolder;
     }
 
-    private static synchronized CacheHolder getOrCreateCacheHolder(Context context, File cacheDir, boolean incrementRef) {
+    private static synchronized CacheHolder getOrCreateCacheHolder(Context context, File cacheDir, boolean incrementRef, boolean fallbackWhenLocked) {
         String cachePath = buildCachePath(context, cacheDir);
         CacheHolder cacheHolder = sCacheHolderMap.get(cachePath);
         if (cacheHolder == null) {
             File cacheFolder = new File(cachePath);
             if (SimpleCache.isCacheFolderLocked(cacheFolder)) {
-                throw new IllegalStateException("Cache folder is locked: " + cachePath);
+                if (fallbackWhenLocked) {
+                    Log.w(TAG, "Exo cache folder is locked, fallback without cache: " + cachePath);
+                    return null;
+                }
+                throw new IllegalStateException("Exo cache folder is locked: " + cachePath);
             }
             Cache cache = new SimpleCache(cacheFolder, new LeastRecentlyUsedCacheEvictor(DEFAULT_MAX_SIZE),
                 sDatabaseProvider != null ? sDatabaseProvider : new StandaloneDatabaseProvider(context));

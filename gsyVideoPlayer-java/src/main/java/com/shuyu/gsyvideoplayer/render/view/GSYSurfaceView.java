@@ -160,6 +160,9 @@ public class GSYSurfaceView extends SurfaceView implements SurfaceHolder.Callbac
 
         if (bitmap == null || getHolder() == null || getHolder().getSurface() == null
             || !getHolder().getSurface().isValid()) {
+            if (bitmap != null && !bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
             gsyVideoShotListener.getBitmap(null);
             return;
         }
